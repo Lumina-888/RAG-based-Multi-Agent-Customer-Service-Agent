@@ -19,6 +19,7 @@ from fastapi import APIRouter, BackgroundTasks, Depends, Query, UploadFile
 from fastapi.responses import JSONResponse
 
 from app.core.config import get_settings
+from app.core.responses import err, ok
 from app.ingestion.chunker import chunk
 from app.ingestion.images import enrich_document_images
 from app.ingestion.indexer import index_chunks
@@ -59,23 +60,6 @@ def get_ingestion_deps() -> IngestionDeps:
     return _build_deps()
 
 
-def _ok(data: dict, trace_id: str | None = None) -> dict:
-    """统一响应包装（SP-API-GEN）。"""
-    return {
-        "code": 0,
-        "message": "ok",
-        "data": data,
-        "trace_id": trace_id or f"t_{uuid.uuid4().hex[:16]}",
-    }
-
-
-def _err(code: int, http_status: int, message: str) -> JSONResponse:
-    return JSONResponse(
-        status_code=http_status,
-        content={"code": code, "message": message, "data": None, "trace_id": f"t_{uuid.uuid4().hex[:16]}"},
-    )
-
-
 @router.post("/documents", status_code=200)
 async def upload_document(
     file: UploadFile,
@@ -85,7 +69,7 @@ async def upload_document(
     """上传文档：非法格式 4001；合法 → 后台异步解析索引，返回 doc_id + status。"""
     ext = Path(file.filename or "").suffix.lower()
     if ext not in SUPPORTED_EXTS:
-        return _err(
+        return err(
             4001, 400, f"不支持的文件格式: {ext or '(无扩展名)'}（支持 {sorted(SUPPORTED_EXTS)}）"
         )
     doc_id = uuid.uuid4().hex
@@ -95,7 +79,7 @@ async def upload_document(
     logger.info(
         "KB 文档上传 doc_id=%s filename=%s", doc_id, file.filename, extra={"trace_id": trace_id}
     )
-    return _ok({"doc_id": doc_id, "status": "processing"}, trace_id)
+    return ok({"doc_id": doc_id, "status": "processing"}, trace_id)
 
 
 @router.get("/search")
@@ -110,8 +94,8 @@ async def kb_search(
             q, deps.es, embedding=deps.embedding, strategy="rrf", top_k=size
         )
     except Exception as exc:  # noqa: BLE001 - ES 不可用统一 5002
-        return _err(5002, 503, f"检索服务不可用: {exc}")
-    return _ok(
+        return err(5002, 503, f"检索服务不可用: {exc}")
+    return ok(
         {
             "strategy": result["strategy"],
             "count": len(result["docs"]),

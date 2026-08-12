@@ -3,3 +3,6 @@
 pytest>=8.0
 pytest-asyncio>=0.24
 pytest-cov>=5.0
+# 存储层离线替身（fakeredis 替代 Redis，aiosqlite 跑 SQLAlchemy 代码路径）
+fakeredis>=2.20
+aiosqlite>=0.20
