@@ -77,7 +77,7 @@
 | M0 配置与骨架 | SP-CFG | P0 | 已交付 |
 | M1 文档解析与索引 | SP-ING | P0 | 已交付 |
 | M2 混合检索 | SP-RET | P0 | 已交付 |
-| M3 意图识别 | SP-INT | P0 | 待开发 |
+| M3 意图识别 | SP-INT | P0 | 已交付 |
 | M4 会话与对话 API | SP-CHAT / SP-SSE | P0 | 待开发 |
 | M5 Agent 编排 | SP-AGENT | P0 | 待开发 |
 | M6 退款服务 | SP-REF | P0 | 待开发 |
