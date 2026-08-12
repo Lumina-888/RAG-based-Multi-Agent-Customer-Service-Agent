@@ -8,7 +8,7 @@ from __future__ import annotations
 from datetime import datetime
 from typing import AsyncIterator
 
-from sqlalchemy import DateTime, Float, ForeignKey, Index, Integer, String, Text, func, text
+from sqlalchemy import JSON, DateTime, Float, ForeignKey, Index, Integer, String, Text, func, text
 from sqlalchemy.ext.asyncio import AsyncEngine, AsyncSession, async_sessionmaker, create_async_engine
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column
 
@@ -70,6 +70,20 @@ class TicketRow(Base):
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
     updated_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now(), onupdate=func.now()
+    )
+
+
+class EvalRunRow(Base):
+    """评测运行记录（SP-EVAL-002）：eval_runs 表，评测看板数据源（SP-FE-003）。"""
+
+    __tablename__ = "eval_runs"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    run_type: Mapped[str] = mapped_column(String(32), index=True)  # intent/retrieval/ragas/ablation
+    name: Mapped[str] = mapped_column(String(128))  # 策略/批次名，如 E3_rrf
+    metrics: Mapped[dict] = mapped_column(JSON)  # 指标字典（recall@5/mrr/... 或消融对比表）
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now()
     )
 
 

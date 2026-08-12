@@ -81,7 +81,7 @@
 | M4 会话与对话 API | SP-CHAT / SP-SSE | P0 | 已交付 |
 | M5 Agent 编排 | SP-AGENT | P0 | 已交付 |
 | M6 退款服务 | SP-REF | P0 | 已交付 |
-| M7 评测体系 | SP-EVAL | P1 | 待开发 |
+| M7 评测体系 | SP-EVAL | P1 | 已交付 |
 | M8 前端页面 | SP-FE | P1 | 待开发 |
 | M9 部署 | SP-DEP | P1 | 待开发 |
 | M10 安全与限流 | SP-SEC（SP-SEC-003 认证为 P0，其余 P1） | P0 | SP-SEC-003 已交付（其余 P1 待开发） |

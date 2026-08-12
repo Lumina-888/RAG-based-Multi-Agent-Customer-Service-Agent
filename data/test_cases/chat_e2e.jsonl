@@ -1,0 +1,20 @@
+{"id": "ce-001", "path": "normal", "turns": [{"role": "user", "content": "这个保温杯容量多大？"}, {"role": "assistant", "content": "容量 500ml，保温时长 12 小时[1]。"}]}
+{"id": "ce-002", "path": "normal", "turns": [{"role": "user", "content": "蓝牙耳机怎么连接手机？"}, {"role": "assistant", "content": "开机后进入配对模式，在手机蓝牙列表中选择设备即可[1]。"}]}
+{"id": "ce-003", "path": "normal", "turns": [{"role": "user", "content": "台灯多少钱？"}, {"role": "assistant", "content": "这款台灯售价 89 元，现在下单还有优惠[1]。"}, {"role": "user", "content": "可以开发票吗？"}, {"role": "assistant", "content": "可以的，下单时选择需要发票即可[1]。"}]}
+{"id": "ce-004", "path": "normal", "turns": [{"role": "user", "content": "充电宝能带上飞机吗？"}, {"role": "assistant", "content": "20000mAh 以内可以随身携带，需遵守航空公司规定[1]。"}]}
+{"id": "ce-005", "path": "normal", "turns": [{"role": "user", "content": "键盘怎么清洗？"}, {"role": "assistant", "content": "建议使用软毛刷和清洁胶，避免液体直接冲洗[1]。"}]}
+{"id": "ce-006", "path": "clarify", "turns": [{"role": "user", "content": "帮我看看那个"}, {"role": "assistant", "content": "请问您想查询哪方面的内容？可以具体描述一下商品或问题。"}]}
+{"id": "ce-007", "path": "clarify", "turns": [{"role": "user", "content": "退"}, {"role": "assistant", "content": "您是想了解退货流程还是申请退款？请告诉我您的订单情况。"}]}
+{"id": "ce-008", "path": "clarify", "turns": [{"role": "user", "content": "那个东西怎么样了"}, {"role": "assistant", "content": "抱歉没理解您的意思，请提供商品名称或订单号，方便为您查询。"}]}
+{"id": "ce-009", "path": "clarify", "turns": [{"role": "user", "content": "不是 我不是说这个"}, {"role": "assistant", "content": "明白，请您重新描述一下问题，我会尽快帮您处理。"}]}
+{"id": "ce-010", "path": "clarify", "turns": [{"role": "user", "content": "额 就是那个 你懂的"}, {"role": "assistant", "content": "抱歉我没理解，您可以输入商品名称或具体问题，我来帮您查询。"}]}
+{"id": "ce-011", "path": "transfer", "turns": [{"role": "user", "content": "我要投诉！你们客服太敷衍了"}, {"role": "assistant", "content": "非常抱歉给您带来不好的体验，已为您转接人工坐席 1001。"}]}
+{"id": "ce-012", "path": "transfer", "turns": [{"role": "user", "content": "转人工客服"}, {"role": "assistant", "content": "好的，已为您转接人工坐席 1001，请稍候。"}]}
+{"id": "ce-013", "path": "transfer", "turns": [{"role": "user", "content": "我要找真人说话"}, {"role": "assistant", "content": "已为您转接人工坐席 1001。"}]}
+{"id": "ce-014", "path": "transfer", "turns": [{"role": "user", "content": "你们服务太差了我要举报"}, {"role": "assistant", "content": "很抱歉给您带来困扰，已为您转接人工坐席 1001 处理。"}]}
+{"id": "ce-015", "path": "transfer", "turns": [{"role": "user", "content": "人工客服在吗"}, {"role": "assistant", "content": "在的，已为您转接人工坐席 1001。"}]}
+{"id": "ce-016", "path": "refund", "turns": [{"role": "user", "content": "我要申请退款"}, {"role": "assistant", "content": "好的，请确认退款订单号 ORD-20260811-001，确认后将为您提交退款申请。"}, {"role": "user", "content": "确认"}, {"role": "assistant", "content": "退款申请已提交，工单号 TK-000001，审核通过后 3~5 个工作日原路退回。"}]}
+{"id": "ce-017", "path": "refund", "turns": [{"role": "user", "content": "订单 ORD-20260811-002 想退货"}, {"role": "assistant", "content": "该订单已签收 3 天，支持 7 天无理由退货，确认为您提交退货退款申请吗？"}, {"role": "user", "content": "确认"}, {"role": "assistant", "content": "退货退款申请已提交，请按提示寄回商品。"}]}
+{"id": "ce-018", "path": "refund", "turns": [{"role": "user", "content": "退款什么时候到账"}, {"role": "assistant", "content": "退款审核通过后 3~5 个工作日内原路退回，您的工单号 TK-000003。"}]}
+{"id": "ce-019", "path": "refund", "turns": [{"role": "user", "content": "商品质量问题想退货"}, {"role": "assistant", "content": "质量问题退货需提供凭证，确认提交退货申请吗？"}, {"role": "user", "content": "确认"}, {"role": "assistant", "content": "退货申请已提交，请附上问题照片凭证。"}]}
+{"id": "ce-020", "path": "refund", "turns": [{"role": "user", "content": "仅退款怎么申请"}, {"role": "assistant", "content": "未发货订单支持仅退款，确认提交申请吗？"}, {"role": "user", "content": "确认"}, {"role": "assistant", "content": "仅退款申请已提交，预计 1~2 个工作日处理。"}]}
