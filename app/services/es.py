@@ -102,17 +102,10 @@ class ESClient:
         resp.raise_for_status()
         return int(resp.json()["count"])
 
-    async def search_match(self, q: str, size: int = 10) -> list[dict]:
-        """BM25 调试检索（标题权重为正文 2 倍，SP-RET-001 口径）；
-        M2 交付后 `/kb/search` 切换 hybrid_search。"""
-        resp = await self._http.post(
-            f"/{self.KB_INDEX}/_search",
-            json={
-                "size": size,
-                "query": {"multi_match": {"query": q, "fields": ["title^2", "content"]}},
-            },
-        )
-        resp.raise_for_status()
+    #: 检索返回字段（不含 embedding 向量，避免回传 1024 维数据）
+    _SOURCE_FIELDS = ["doc_id", "title", "heading_path", "content", "seq", "source"]
+
+    def _map_hits(self, resp: httpx.Response) -> list[dict]:
         return [
             {
                 "chunk_id": h["_id"],
@@ -124,6 +117,78 @@ class ESClient:
             }
             for h in resp.json()["hits"]["hits"]
         ]
+
+    async def search_match(self, q: str, size: int = 10) -> list[dict]:
+        """BM25 检索（标题权重为内容 2 倍，SP-RET-001 口径）；`/kb/search` 亦复用。"""
+        resp = await self._http.post(
+            f"/{self.KB_INDEX}/_search",
+            json={
+                "size": size,
+                "_source": self._SOURCE_FIELDS,
+                "query": {"multi_match": {"query": q, "fields": ["title^2", "content"]}},
+            },
+        )
+        resp.raise_for_status()
+        return self._map_hits(resp)
+
+    async def search_knn(
+        self, q_vector: list[float], size: int = 10, num_candidates: int = 200
+    ) -> list[dict]:
+        """向量检索（bge-m3，SP-RET-002）：kNN 按余弦相似度降序。"""
+        resp = await self._http.post(
+            f"/{self.KB_INDEX}/_search",
+            json={
+                "size": size,
+                "_source": self._SOURCE_FIELDS,
+                "knn": {
+                    "field": "embedding",
+                    "query_vector": q_vector,
+                    "k": size,
+                    "num_candidates": num_candidates,
+                },
+            },
+        )
+        resp.raise_for_status()
+        return self._map_hits(resp)
+
+    async def search_rrf(
+        self,
+        q: str,
+        q_vector: list[float],
+        size: int = 10,
+        k: int = 60,
+        num_candidates: int = 200,
+    ) -> list[dict]:
+        """ES 原生 RRF 融合（SP-RET-005，需 ES ≥ 8.8）：BM25 + kNN 双路，
+        `rank_constant=k` 与 `fusion.rrf_fuse` 行为对标。"""
+        resp = await self._http.post(
+            f"/{self.KB_INDEX}/_search",
+            json={
+                "size": size,
+                "_source": self._SOURCE_FIELDS,
+                "query": {
+                    "rank": {
+                        "rrf": {
+                            "rank_constant": k,
+                            "window_size": 100,
+                            "queries": [
+                                {"multi_match": {"query": q, "fields": ["title^2", "content"]}},
+                                {
+                                    "knn": {
+                                        "field": "embedding",
+                                        "query_vector": q_vector,
+                                        "k": size,
+                                        "num_candidates": num_candidates,
+                                    }
+                                },
+                            ],
+                        }
+                    }
+                },
+            },
+        )
+        resp.raise_for_status()
+        return self._map_hits(resp)
 
     async def aclose(self) -> None:
         await self._http.aclose()

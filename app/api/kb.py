@@ -23,6 +23,7 @@ from app.ingestion.chunker import chunk
 from app.ingestion.images import enrich_document_images
 from app.ingestion.indexer import index_chunks
 from app.ingestion.parser import SUPPORTED_EXTS, MinerUClient, build_mineru, parse_bytes
+from app.retrieval.hybrid_search import hybrid_search
 from app.services.embedding import EmbeddingClient, build_embedding_client
 from app.services.es import ESClient
 from app.services.llm import LLMRouter, build_llm
@@ -103,16 +104,19 @@ async def kb_search(
     size: int = Query(10, ge=1, le=50),
     deps: IngestionDeps = Depends(get_ingestion_deps),
 ) -> dict:
-    """调试用：查看检索原始结果（标题权重 2 倍，SP-RET-001 口径）。"""
+    """调试用：查看混合检索原始结果（默认 RRF 融合，SP-RET-005）。"""
     try:
-        hits = await deps.es.search_match(q, size)
-    except httpx.HTTPError as exc:
+        result = await hybrid_search(
+            q, deps.es, embedding=deps.embedding, strategy="rrf", top_k=size
+        )
+    except Exception as exc:  # noqa: BLE001 - ES 不可用统一 5002
         return _err(5002, 503, f"检索服务不可用: {exc}")
     return _ok(
         {
-            "strategy": "bm25-preview（M2 交付后切换 hybrid_search）",
-            "count": len(hits),
-            "hits": hits,
+            "strategy": result["strategy"],
+            "count": len(result["docs"]),
+            "elapsed_ms": result["elapsed_ms"],
+            "hits": result["docs"],
         }
     )
 

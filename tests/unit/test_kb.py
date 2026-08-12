@@ -2,7 +2,7 @@
 
 - T-ING-411 上传 .md → 后台 解析→分块→索引 完成（表格小节落库）
 - T-ING-412 非法扩展名 → 4001 统一 JSON
-- T-ING-413 /kb/search 调试检索返回原始结果
+- T-ING-413 /kb/search 调试检索（混合检索 RRF 通路）返回原始结果
 """
 from __future__ import annotations
 
@@ -48,6 +48,27 @@ class FakeES:
             for _id, v in self.docs.items()
             if q in v["content"]
         ][:size]
+
+    async def search_knn(self, q_vector: list[float], size: int = 10, num_candidates: int = 200) -> list[dict]:
+        return sorted(
+            (
+                {
+                    "chunk_id": _id,
+                    "doc_id": v["doc_id"],
+                    "title": v["title"],
+                    "heading_path": v["heading_path"],
+                    "content": v["content"],
+                    "score": 0.5,
+                }
+                for _id, v in self.docs.items()
+            ),
+            key=lambda h: -h["score"],
+        )[:size]
+
+    async def search_rrf(
+        self, q: str, q_vector: list[float], size: int = 10, k: int = 60, num_candidates: int = 200
+    ) -> list[dict]:
+        return await self.search_match(q, size)
 
 
 MD = """# 商品常见问题
@@ -127,5 +148,6 @@ class TestKbApiOffline:
         body = resp.json()
         assert body["code"] == 0
         assert body["data"]["count"] >= 1
+        assert body["data"]["strategy"] in ("rrf", "bm25-fallback")  # 混合检索通路
         hit = body["data"]["hits"][0]
         assert {"chunk_id", "doc_id", "title", "heading_path", "content", "score"} <= set(hit)

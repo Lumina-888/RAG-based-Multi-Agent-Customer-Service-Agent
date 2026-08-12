@@ -148,3 +148,32 @@ class TestESClient:
 
     async def test_ing_309_ping(self, client: ESClient, rec: _Recorder) -> None:
         assert await client.ping() is True
+
+    # ---------- M2 检索路径（SP-RET-001/002/005） ----------
+
+    async def test_ing_310_search_knn_request(self, client: ESClient, rec: _Recorder) -> None:
+        hits = await client.search_knn([0.1] * 1024, size=5, num_candidates=100)
+
+        assert hits[0]["chunk_id"] == "d-0"
+        method, path, params, body = rec.calls[0]
+        assert method == "POST" and path == "/kb_chunks/_search"
+        payload = json.loads(body)
+        assert payload["knn"] == {
+            "field": "embedding",
+            "query_vector": [0.1] * 1024,
+            "k": 5,
+            "num_candidates": 100,
+        }
+        assert "embedding" not in payload["_source"]  # 不回传向量
+
+    async def test_ing_311_search_rrf_request(self, client: ESClient, rec: _Recorder) -> None:
+        hits = await client.search_rrf("退货", [0.2] * 1024, size=10, k=60)
+
+        assert hits[0]["title"] == "售后政策"
+        method, path, params, body = rec.calls[0]
+        payload = json.loads(body)
+        rrf = payload["query"]["rank"]["rrf"]
+        assert rrf["rank_constant"] == 60  # 与 fusion.rrf_fuse 的 k 对标
+        queries = rrf["queries"]
+        assert queries[0]["multi_match"]["fields"] == ["title^2", "content"]
+        assert queries[1]["knn"]["field"] == "embedding"
