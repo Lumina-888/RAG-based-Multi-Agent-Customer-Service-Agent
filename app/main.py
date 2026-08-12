@@ -9,6 +9,7 @@ import uuid
 
 from fastapi import FastAPI
 
+from app.api.kb import router as kb_router
 from app.core.config import get_settings
 from app.core.logging import setup_logging
 
@@ -16,6 +17,7 @@ settings = get_settings()
 setup_logging()
 
 app = FastAPI(title=settings.app_name, version="0.1.0")
+app.include_router(kb_router)  # SP-ING-004 知识库管理（上传/调试检索）
 
 
 @app.get("/api/v1/health")
