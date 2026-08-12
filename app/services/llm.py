@@ -33,27 +33,44 @@ class LLMClient(Protocol):
 
     async def chat(self, messages: list[dict[str, Any]], **kwargs: Any) -> str: ...
 
+    async def chat_tools(
+        self, messages: list[dict[str, Any]], tools: list[dict[str, Any]], tool_choice: str = "auto"
+    ) -> tuple[str, list[dict[str, Any]] | None]: ...
+
     async def vision(self, image_url: str, prompt: str, **kwargs: Any) -> str: ...
 
 
 @dataclass
 class ChatResult:
-    """统一调用结果：内容 + 实际使用的模型 + 是否发生降级。"""
+    """统一调用结果：内容 + 实际使用的模型 + 是否发生降级。
+
+    `tool_calls`：OpenAI 兼容 Function Calling 解析结果（SP-AGENT-003，
+    格式 `[{"id", "type", "function": {"name", "arguments"}}]`；无工具调用为 None）
+    """
 
     content: str
     model: str
     fallback_used: bool = False
+    tool_calls: list[dict[str, Any]] | None = None
 
 
 class OpenAIClient:
     """OpenAI 兼容协议的云端 API 客户端（DeepSeek / mimo 均兼容）。"""
 
-    def __init__(self, model: str, api_key: str, base_url: str, timeout: float = 30.0):
+    def __init__(
+        self,
+        model: str,
+        api_key: str,
+        base_url: str,
+        timeout: float = 30.0,
+        transport: httpx.AsyncBaseTransport | None = None,
+    ) -> None:
         self.model = model
         self._http = httpx.AsyncClient(
             base_url=base_url.rstrip("/"),
             headers={"Authorization": f"Bearer {api_key}"},
             timeout=timeout,
+            transport=transport,  # 测试可注入 MockTransport
         )
 
     async def chat(self, messages: list[dict[str, Any]], **kwargs: Any) -> str:
@@ -61,7 +78,28 @@ class OpenAIClient:
             "/chat/completions", json={"model": self.model, "messages": messages, **kwargs}
         )
         resp.raise_for_status()
-        return resp.json()["choices"][0]["message"]["content"]
+        message = resp.json()["choices"][0]["message"]
+        return message.get("content") or ""
+
+    async def chat_tools(
+        self,
+        messages: list[dict[str, Any]],
+        tools: list[dict[str, Any]],
+        tool_choice: str = "auto",
+    ) -> tuple[str, list[dict[str, Any]] | None]:
+        """Function Calling（SP-AGENT-003）：返回 (content, tool_calls)。"""
+        resp = await self._http.post(
+            "/chat/completions",
+            json={
+                "model": self.model,
+                "messages": messages,
+                "tools": tools,
+                "tool_choice": tool_choice,
+            },
+        )
+        resp.raise_for_status()
+        message = resp.json()["choices"][0]["message"]
+        return (message.get("content") or ""), message.get("tool_calls")
 
     async def vision(self, image_url: str, prompt: str, **kwargs: Any) -> str:
         resp = await self._http.post(
@@ -106,6 +144,23 @@ class FakeLLM:
             {"method": "chat", "model": self.model, "messages": messages, "kwargs": kwargs}
         )
         return self._respond()
+
+    async def chat_tools(
+        self,
+        messages: list[dict[str, Any]],
+        tools: list[dict[str, Any]],
+        tool_choice: str = "auto",
+    ) -> tuple[str, list[dict[str, Any]] | None]:
+        self.calls.append(
+            {
+                "method": "chat_tools",
+                "model": self.model,
+                "messages": messages,
+                "tools": tools,
+                "tool_choice": tool_choice,
+            }
+        )
+        return self._respond(), None  # Fake 不产出 tool_calls（工具层注入 FakeToolParser）
 
     async def vision(self, image_url: str, prompt: str, **kwargs: Any) -> str:
         self.calls.append(
@@ -164,6 +219,34 @@ class LLMRouter:
             content = await self._fallback.chat(messages, **kwargs)
             logger.info("主模型不可用，已降级备模型 %s", self._fallback.model)
             return ChatResult(content=content, model=self._fallback.model, fallback_used=True)
+        except Exception as exc:  # noqa: BLE001
+            last_err = exc
+        raise LLMUnavailableError(f"主备模型均不可用: {last_err}") from last_err
+
+    async def chat_tools(
+        self,
+        messages: list[dict[str, Any]],
+        tools: list[dict[str, Any]],
+        tool_choice: str = "auto",
+    ) -> ChatResult:
+        """Function Calling 统一入口（SP-AGENT-003）：主 → 备降级，同 chat 语义。"""
+        last_err: Exception | None = None
+        for attempt in range(self._config.llm_max_retries):
+            try:
+                content, tool_calls = await self._main.chat_tools(messages, tools, tool_choice)
+                return ChatResult(
+                    content=content, model=self._main.model, tool_calls=tool_calls
+                )
+            except Exception as exc:  # noqa: BLE001
+                last_err = exc
+                if attempt + 1 < self._config.llm_max_retries:
+                    await asyncio.sleep(self._backoff * (2**attempt))
+        try:
+            content, tool_calls = await self._fallback.chat_tools(messages, tools, tool_choice)
+            return ChatResult(
+                content=content, model=self._fallback.model,
+                fallback_used=True, tool_calls=tool_calls,
+            )
         except Exception as exc:  # noqa: BLE001
             last_err = exc
         raise LLMUnavailableError(f"主备模型均不可用: {last_err}") from last_err

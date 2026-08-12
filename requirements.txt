@@ -12,3 +12,5 @@ numpy<2
 redis>=5.0
 sqlalchemy>=2.0
 asyncpg>=0.29
+# Agent 编排状态机（SP-AGENT-004，仅用 LangGraph，不引入 LangChain 高层抽象）
+langgraph>=0.3

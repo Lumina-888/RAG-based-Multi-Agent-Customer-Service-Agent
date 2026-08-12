@@ -32,6 +32,14 @@ class SessionStore(Protocol):
 
     async def get_events(self, session_id: str, after_id: int = 0) -> list[dict[str, Any]]: ...
 
+    async def set_transfer_summary(self, session_id: str, summary: str) -> None: ...
+
+    async def get_transfer_summary(self, session_id: str) -> str | None: ...
+
+    async def set_pending_confirm(self, session_id: str, args: dict[str, Any] | None) -> None: ...
+
+    async def get_pending_confirm(self, session_id: str) -> dict[str, Any] | None: ...
+
     async def clear(self, session_id: str) -> None: ...
 
 
@@ -60,6 +68,14 @@ class RedisSessionStore:
     def _events_key(session_id: str) -> str:
         return f"session:{session_id}:events"
 
+    @staticmethod
+    def _transfer_key(session_id: str) -> str:
+        return f"session:{session_id}:transfer"
+
+    @staticmethod
+    def _pending_key(session_id: str) -> str:
+        return f"session:{session_id}:pending"
+
     async def get_context(self, session_id: str) -> list[dict[str, Any]]:
         raw = await self._redis.get(self._ctx_key(session_id))
         return json.loads(raw) if raw else []
@@ -83,8 +99,33 @@ class RedisSessionStore:
             {**json.loads(item), "id": idx + after_id + 1} for idx, item in enumerate(raw)
         ]
 
+    async def set_transfer_summary(self, session_id: str, summary: str) -> None:
+        """转人工摘要（SP-AGENT-005），TTL 1 小时展示用。"""
+        await self._redis.set(self._transfer_key(session_id), summary, ex=3600)
+
+    async def get_transfer_summary(self, session_id: str) -> str | None:
+        return await self._redis.get(self._transfer_key(session_id))
+
+    async def set_pending_confirm(self, session_id: str, args: dict[str, Any] | None) -> None:
+        """CONFIRM 挂起上下文（SP-AGENT-004）：等待用户确认的建单参数。"""
+        if args is None:
+            await self._redis.delete(self._pending_key(session_id))
+        else:
+            await self._redis.set(
+                self._pending_key(session_id),
+                json.dumps(args, ensure_ascii=False),
+                ex=1800,
+            )
+
+    async def get_pending_confirm(self, session_id: str) -> dict[str, Any] | None:
+        raw = await self._redis.get(self._pending_key(session_id))
+        return json.loads(raw) if raw else None
+
     async def clear(self, session_id: str) -> None:
-        await self._redis.delete(self._ctx_key(session_id), self._events_key(session_id))
+        await self._redis.delete(
+            self._ctx_key(session_id), self._events_key(session_id),
+            self._transfer_key(session_id), self._pending_key(session_id),
+        )
 
     async def aclose(self) -> None:
         await self._redis.aclose()
@@ -97,6 +138,8 @@ class FakeSessionStore:
         self.ctx_ttl = ttl
         self.contexts: dict[str, list[dict[str, Any]]] = {}
         self.events: dict[str, list[dict[str, Any]]] = {}
+        self.transfer_summaries: dict[str, str] = {}
+        self.pending_confirms: dict[str, dict[str, Any]] = {}
 
     async def get_context(self, session_id: str) -> list[dict[str, Any]]:
         return list(self.contexts.get(session_id, []))
@@ -121,6 +164,23 @@ class FakeSessionStore:
             if idx + 1 > after_id
         ]
 
+    async def set_transfer_summary(self, session_id: str, summary: str) -> None:
+        self.transfer_summaries[session_id] = summary
+
+    async def get_transfer_summary(self, session_id: str) -> str | None:
+        return self.transfer_summaries.get(session_id)
+
+    async def set_pending_confirm(self, session_id: str, args: dict[str, Any] | None) -> None:
+        if args is None:
+            self.pending_confirms.pop(session_id, None)
+        else:
+            self.pending_confirms[session_id] = dict(args)
+
+    async def get_pending_confirm(self, session_id: str) -> dict[str, Any] | None:
+        return self.pending_confirms.get(session_id)
+
     async def clear(self, session_id: str) -> None:
         self.contexts.pop(session_id, None)
         self.events.pop(session_id, None)
+        self.transfer_summaries.pop(session_id, None)
+        self.pending_confirms.pop(session_id, None)

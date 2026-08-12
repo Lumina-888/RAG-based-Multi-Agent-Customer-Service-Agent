@@ -71,11 +71,14 @@ def client() -> TestClient:
 
 
 def _post(client: TestClient, payload: dict) -> list[tuple[str, dict, int]]:
-    """POST 并解析 SSE 行 → [(event, data, id)]；断言 JSON 合法（T-SSE-102）。"""
+    """POST 并解析 SSE 行 → [(event, data, id)]；断言 JSON 合法（T-SSE-102）。
+
+    注：整读 body 后按行解析（httpx iter_lines 在 TestClient 下会丢首段）。
+    """
     with client.stream("POST", "/api/v1/chat", json=payload) as resp:
         assert resp.status_code == 200
         assert resp.headers["content-type"].startswith("text/event-stream")
-        lines = list(resp.iter_lines())
+        lines = resp.read().decode().splitlines()
     events: list[tuple[str, dict, int]] = []
     current: str | None = None
     event_id: int | None = None
@@ -129,13 +132,16 @@ class TestSseE2E:
         assert names.index("vision") > names.index("route")
         assert names.index("vision") < names.index("retrieval")
 
-    def test_sse_101_refund_qa(self, client: TestClient) -> None:
+    def test_sse_101_refund_flow(self, client: TestClient) -> None:
+        """退款意图 → refund_agent；无订单号 → 澄清追问（M5 路由，SP-AGENT-001）。"""
         client.app.dependency_overrides[chat_api.get_chat_deps] = lambda: _deps(
             intent="refund", replies=["已提交退款申请"]
         )
         events = _post(client, {**BASE, "message": "我要退款"})
-        assert _names(events) == ["intent", "route", "retrieval", "message", "message", "done"]
+        assert _names(events) == ["intent", "route", "message", "message", "done"]
         assert events[1][1]["intent"] == "refund"  # route 携带最终 intent
+        assert events[1][1]["agent"] == "refund_agent"
+        assert "订单号" in events[2][1]["content"]  # 澄清追问订单号（不直接建单）
 
     def test_sse_101_order_query_qa(self, client: TestClient) -> None:
         client.app.dependency_overrides[chat_api.get_chat_deps] = lambda: _deps(
@@ -186,5 +192,5 @@ class TestSseE2E:
             "POST", "/api/v1/chat", json=BASE, headers={"Last-Event-ID": str(last_id)}
         ) as resp:
             assert resp.status_code == 200
-            body = "".join(resp.iter_text())
+            body = resp.read().decode()
         assert body.strip() == ""

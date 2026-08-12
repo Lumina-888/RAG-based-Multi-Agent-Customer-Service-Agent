@@ -26,6 +26,7 @@ from app.services.chat_flow import run_chat_flow
 from app.services.embedding import build_embedding_client
 from app.services.es import ESClient
 from app.services.llm import LLMRouter, build_llm
+from app.services.refund_gateway import MemoryRefundGateway, RefundGateway
 
 logger = logging.getLogger("app.api.chat")
 
@@ -56,6 +57,8 @@ class ChatDeps:
     es: Any
     embedding: Any
     retrieval_top_k: int = 5
+    #: 退款建单网关（SP-AGENT-003 工具依赖；M6 交付真实实现后替换）
+    refund_gateway: RefundGateway = field(default_factory=MemoryRefundGateway)
 
 
 @lru_cache(maxsize=1)
@@ -121,8 +124,10 @@ async def _event_stream(
             yield _format(ev["event"], ev["data"], ev["id"])
         return
     try:
-        async for event in run_chat_flow(deps, session_id, message, attachments, user_id):
-            yield _format(event.event, event.data, event.seq)
+        async for event_name, data, seq in run_chat_flow(
+            deps, session_id, message, attachments, user_id
+        ):
+            yield _format(event_name, data, seq)
     except Exception as exc:  # noqa: BLE001 - 兜底：done 必须发送（SP-SSE-001）
         logger.exception("SSE 流异常 session_id=%s", session_id)
         yield _format(

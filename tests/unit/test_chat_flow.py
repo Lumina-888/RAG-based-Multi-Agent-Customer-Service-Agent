@@ -71,11 +71,14 @@ def _client(deps: chat_api.ChatDeps) -> TestClient:
 
 
 def _post_sse(client: TestClient, payload: dict, headers: dict | None = None):
-    """POST /api/v1/chat 并解析 SSE 事件 → [(event, data_dict)]。"""
+    """POST /api/v1/chat 并解析 SSE 事件 → [(event, data_dict)]。
+
+    注：整读 body 后按行解析（httpx iter_lines 在 TestClient 下会丢首段）。
+    """
     with client.stream("POST", "/api/v1/chat", json=payload, headers=headers or {}) as resp:
         assert resp.status_code == 200
         assert resp.headers["content-type"].startswith("text/event-stream")
-        lines = list(resp.iter_lines())
+        lines = resp.read().decode().splitlines()
     events: list[tuple[str, dict]] = []
     current: str | None = None
     for line in lines:
@@ -217,5 +220,39 @@ class TestChatFlow:
         with client2.stream(
             "POST", "/api/v1/chat", json=PAYLOAD, headers={"Last-Event-ID": str(len(events1))}
         ) as resp:
-            body = "".join(resp.iter_text())
+            body = resp.read().decode()
         assert body.strip() == ""  # 无新事件可重放
+
+    async def test_sse_104_pending_confirm_persisted_across_requests(self) -> None:
+        """CONFIRM 挂起上下文跨请求持久化（SP-AGENT-004）：未确认不建单。"""
+        deps = _deps(intent="refund", conf=0.95)
+        sid = PAYLOAD["session_id"]
+        client = _client(deps)
+        headers = {"X-User-Id": "user-1"}  # 订单 ORD-20260811-001 归属 user-1
+
+        events1 = _post_sse(
+            client, {**PAYLOAD, "message": "我要退款 订单号 ORD-20260811-001"}, headers=headers
+        )
+        confirm_msg = next(d for e, d in events1 if e == "message" and d.get("content"))
+        assert "确认" in confirm_msg["content"]  # 引导确认话术
+        assert await deps.store.get_pending_confirm(sid) is not None  # 挂起上下文已落库
+        assert deps.refund_gateway.tickets == []  # 未确认 → 零建单
+
+        # 确认 → 建单并返回单号，挂起上下文清除
+        events2 = _post_sse(client, {**PAYLOAD, "message": "确认"}, headers=headers)
+        assert events2[-1][1]["ticket_id"]
+        assert await deps.store.get_pending_confirm(sid) is None
+
+    async def test_sse_103_graph_exception_still_sends_done(self, monkeypatch) -> None:
+        """图级异常（execute_graph 直接抛错）→ 仍发送 done 带 error。"""
+        import app.services.chat_flow as chat_flow_mod
+
+        async def _boom(*args, **kwargs):
+            raise RuntimeError("graph broken")
+
+        monkeypatch.setattr(chat_flow_mod, "execute_graph", _boom)
+        deps = _deps(intent="pre_sales", conf=0.95)
+        events = _post_sse(_client(deps), PAYLOAD)
+
+        assert [e for e, _ in events] == ["done"]
+        assert events[0][1]["error"]["code"] == 5000
