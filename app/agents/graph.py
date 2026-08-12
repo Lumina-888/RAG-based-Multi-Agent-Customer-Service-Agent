@@ -32,6 +32,8 @@ from app.intent.decision import Decision, decide
 from app.intent.guard import should_transfer
 from app.intent.labels import INVALID_INTENT
 from app.retrieval.hybrid_search import hybrid_search
+from app.security.injection import INJECTION_REPLY, detect_injection
+from app.security.masking import mask_reply_text
 from app.services.erp_sim import get_order
 from app.services.llm import LLMUnavailableError
 from app.services.refund_gateway import RefundGateway, ServiceRefundGateway
@@ -176,6 +178,8 @@ def build_graph(deps: Any):
 
     async def tool_node(state: AgentState) -> dict:
         """order_query → 工具调用（解析/校验/归属）；参数非法不调用真实服务 → 澄清。"""
+        if detect_injection(state["message"]):  # SP-SEC-001：注入指令前置拦截，零调用
+            return {"reply": INJECTION_REPLY, "tool_calls": []}
         order_id = extract_order_id(state["message"])
         if order_id is None:
             return {"reply": "请提供订单号（例如 ORD-20260811-001）以便查询。", "tool_calls": []}
@@ -195,6 +199,8 @@ def build_graph(deps: Any):
     async def refund_node(state: AgentState) -> dict:
         """refund → 提取订单号 → 组装建单参数（金额取订单实付，SP-REF-001）→
         CONFIRM 挂起（未确认不得建单）。"""
+        if detect_injection(state["message"]):  # SP-SEC-001：注入指令不进入 CONFIRM/建单
+            return {"reply": INJECTION_REPLY, "pending_args": None}
         order_id = extract_order_id(state["message"])
         if order_id is None:
             return {"reply": REFUND_CLARIFY_REPLY}
@@ -253,10 +259,12 @@ def build_graph(deps: Any):
         return {"reply": CLARIFY_REPLY}
 
     async def reply_node(state: AgentState) -> dict:
-        reply = state.get("reply") or FALLBACK_REPLY
+        # SP-SEC-002：统一脱敏（手机号 138****5678 / 订单号 ORD-****），
+        # 在 SSE 下发与 PG/Redis 落库之前完成
+        reply = mask_reply_text(state.get("reply") or FALLBACK_REPLY)
         _emit(state, "message", {"content": reply, "delta": True})
         _emit(state, "message", {"content": "", "delta": False})
-        return {"_sse": state["_sse"]}
+        return {"reply": reply, "_sse": state["_sse"]}
 
     g = StateGraph(AgentState)
     g.add_node("intent", _safe(intent_node))

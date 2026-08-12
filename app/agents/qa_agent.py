@@ -12,6 +12,7 @@ from typing import Any, Protocol
 
 from app.core.config import Settings, get_settings
 from app.intent.guard import should_reject
+from app.security.injection import build_user_turn
 
 #: 强制引用系统提示词（SP-AGENT-002）
 QA_SYSTEM_PROMPT = (
@@ -80,7 +81,9 @@ async def generate_answer(
     result = await llm.chat(
         [
             {"role": "system", "content": QA_SYSTEM_PROMPT},
-            {"role": "user", "content": f"知识库：\n{_format_context(docs)}\n\n问题：{question}"},
+            # 分隔标记（SP-SEC-001）：用户输入与系统提示词之间显式隔离，
+            # 注入指令仅视为数据
+            {"role": "user", "content": f"知识库：\n{_format_context(docs)}\n\n{build_user_turn(question)}"},
         ]
     )
     content = result.content if hasattr(result, "content") else str(result)
