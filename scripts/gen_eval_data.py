@@ -7,14 +7,16 @@
 设计：
 - retrieval：扫描 data/raw_docs/*.md，doc_id = 文件名 stem；按分类模板池
   （售后政策类 / 商品使用FAQ 类 / 兜底通用）生成查询，gold_docs 指向该 doc。
-  总条数固定 50（多文档时每篇均分，≥1）；W4-3 知识库扩充（G）后重跑即可
-  自动覆盖新文档（新文档按文件名关键词命中分类池）
+  总条数固定 50，**跨分类轮询取样**（按文件名前缀分桶），保证 售后政策 /
+  商品手册 / FAQ 各类文档都有查询覆盖（避免按序截断使某类整类缺失）；
+  W4-3 知识库扩充（100 文档）后重跑即自动覆盖新文档
 - chat_e2e：20 条手写对话对，覆盖四条路径（正常/澄清/转人工/退款，各 5 条）
 """
 from __future__ import annotations
 
 import json
 import random
+from collections import defaultdict, deque
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent.parent
@@ -182,6 +184,24 @@ CHAT_E2E_CASES: list[dict] = [
 ]
 
 
+def _balanced_sample(doc_queries: dict[str, list[dict]], target: int) -> list[dict]:
+    """跨文档类型轮询取样：按文件名前缀（售后政策/商品手册/FAQ/...）分桶，
+    逐桶轮询取第一条，保证各类文档都有覆盖；总量 = target。"""
+    buckets: dict[str, deque] = defaultdict(deque)
+    for doc_id, queries in doc_queries.items():
+        bucket = doc_id.split("-")[0]
+        buckets[bucket].append(queries[0])
+    rows: list[dict] = []
+    names = list(buckets)
+    i = 0
+    while len(rows) < target and any(buckets.values()):
+        name = names[i % len(names)]
+        i += 1
+        if buckets[name]:
+            rows.append(buckets[name].popleft())
+    return rows
+
+
 def main() -> None:
     out_dir = ROOT / "data" / "test_cases"
     out_dir.mkdir(parents=True, exist_ok=True)
@@ -193,10 +213,10 @@ def main() -> None:
     if not doc_ids:
         raise SystemExit(f"data/raw_docs 无 md 文档，无法生成检索标注: {raw_dir}")
     per_doc = max(1, min(QUERIES_PER_DOC_CAP, -(-RETRIEVAL_TARGET // len(doc_ids))))  # 向上取整
-    retrieval_rows: list[dict] = []
+    doc_queries: dict[str, list[dict]] = {}
     for doc_id in doc_ids:
-        retrieval_rows += _gen_queries(doc_id, per_doc, rng)
-    retrieval_rows = retrieval_rows[:RETRIEVAL_TARGET]  # 超量截断，保总量
+        doc_queries[doc_id] = _gen_queries(doc_id, per_doc, rng)
+    retrieval_rows = _balanced_sample(doc_queries, RETRIEVAL_TARGET)  # 跨分类轮询，保总量
 
     ret_path = out_dir / "retrieval.jsonl"
     with ret_path.open("w", encoding="utf-8") as f:
