@@ -9,8 +9,10 @@ from __future__ import annotations
 
 import uuid
 from contextlib import asynccontextmanager
+from pathlib import Path
 
 from fastapi import FastAPI
+from fastapi.responses import FileResponse, JSONResponse
 
 from app.api.auth import router as auth_router
 from app.api.chat import router as chat_router
@@ -22,6 +24,10 @@ from app.core.config import get_settings
 from app.core.logging import setup_logging
 
 settings = get_settings()
+
+#: 前端构建产物目录（SP-DEP-001：Docker 多阶段构建把 dist 打进 app/static；
+#: 本地未构建时该目录不存在 → SPA 回退返回 404，不影响 API）
+STATIC_DIR = Path(__file__).resolve().parent / "static"
 
 
 @asynccontextmanager
@@ -48,3 +54,22 @@ async def health() -> dict:
         "data": {"status": "healthy"},
         "trace_id": f"t_{uuid.uuid4().hex[:16]}",
     }
+
+
+@app.get("/{full_path:path}", include_in_schema=False)
+async def spa_fallback(full_path: str):
+    """前端静态资源（SP-DEP-001）：dist 由 FastAPI 托管，SPA 路由回退 index.html。
+
+    - 命中真实文件（js/css/图片等）→ FileResponse
+    - 其余路径（SPA 路由如 /eval、/tickets）→ index.html
+    - 未构建前端（STATIC_DIR 不存在）→ 404 JSON，不影响 API
+    """
+    if STATIC_DIR.is_dir():
+        if full_path:
+            target = STATIC_DIR / full_path
+            if target.is_file():
+                return FileResponse(target)
+        index = STATIC_DIR / "index.html"
+        if index.exists():
+            return FileResponse(index)
+    return JSONResponse({"detail": "Not Found"}, status_code=404)

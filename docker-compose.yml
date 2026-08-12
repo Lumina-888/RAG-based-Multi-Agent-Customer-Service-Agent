@@ -1,0 +1,70 @@
+# SP-DEP-001 Docker Compose 一键起：postgres / redis / es / app / nginx
+# 密钥仅来自 .env（SP-DEP-002：本文件无明文密钥，env_file 从宿主机 .env 读取）
+# 用法：docker compose up -d --build → scripts/smoke_test.sh
+
+services:
+  postgres:
+    image: postgres:16
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+      POSTGRES_DB: smart_agent
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d smart_agent"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+
+  redis:
+    image: redis:7
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+
+  es:
+    # 需 ES ≥ 8.8（SP-RET-005 原生 RRF）；单节点演示，内存显式限制
+    image: docker.elastic.co/elasticsearch/elasticsearch:8.8.2
+    environment:
+      - discovery.type=single-node
+      - xpack.security.enabled=false
+      - ES_JAVA_OPTS=-Xms512m -Xmx512m
+    healthcheck:
+      test: ["CMD-SHELL", "curl -fs http://localhost:9200/_cluster/health || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 30
+
+  app:
+    build: .
+    env_file: .env
+    environment:
+      # 容器内服务名覆盖 .env 的 localhost 地址（密钥类变量不进 compose）
+      POSTGRES_DSN: postgresql://postgres:postgres@postgres:5432/smart_agent
+      REDIS_URL: redis://redis:6379/0
+      ES_HOST: http://es:9200
+    ports:
+      - "8000:8000"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      es:
+        condition: service_healthy
+
+  nginx:
+    # SP-DEP-003 反代 + 限流（可选；8080 入口）。直连 8000 绕过限流（SP-CHAT-003 压测口径）
+    image: nginx:1.27
+    ports:
+      - "8080:8080"
+    volumes:
+      - ./deploy/nginx.conf:/etc/nginx/conf.d/default.conf:ro
+    depends_on:
+      - app
+
+volumes:
+  pgdata:
