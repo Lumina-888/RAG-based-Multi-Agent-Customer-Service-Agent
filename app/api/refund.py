@@ -17,6 +17,7 @@ from typing import Any
 from fastapi import APIRouter, Depends, Request
 from pydantic import BaseModel
 
+from app.api.auth import get_current_user
 from app.core.config import get_settings
 from app.core.responses import err, ok
 from app.refund.repo import PostgresTicketRepo
@@ -49,11 +50,6 @@ def get_refund_service() -> RefundService:
     return _build_service()
 
 
-def _user_id(request: Request) -> str | None:
-    user_id = request.headers.get("X-User-Id")
-    return user_id if user_id and user_id.strip() else None
-
-
 def _refund_error(exc: RefundError):
     return err(exc.code, exc.http_status, str(exc), data=exc.data)
 
@@ -61,12 +57,11 @@ def _refund_error(exc: RefundError):
 @router.post("/refund-requests")
 async def create_refund_request(
     req: RefundRequestModel,
-    request: Request,
+    user_id: str | None = Depends(get_current_user),
     service: RefundService = Depends(get_refund_service),
 ) -> dict:
-    user_id = _user_id(request)
     if user_id is None:
-        return err(4010, 401, "未登录或会话无效")  # SP-REF-002
+        return err(4010, 401, "未登录或会话无效")  # SP-REF-002 / SP-SEC-003
     try:
         ticket = await service.create_request(
             user_id=user_id,

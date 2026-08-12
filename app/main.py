@@ -12,6 +12,7 @@ from contextlib import asynccontextmanager
 
 from fastapi import FastAPI
 
+from app.api.auth import router as auth_router
 from app.api.chat import router as chat_router
 from app.api.kb import router as kb_router
 from app.api.refund import router as refund_router
@@ -30,6 +31,7 @@ async def lifespan(_: FastAPI):
 
 app = FastAPI(title=settings.app_name, version="0.1.0", lifespan=lifespan)
 app.include_router(kb_router)  # SP-ING-004 知识库管理（上传/调试检索）
+app.include_router(auth_router)  # SP-SEC-003 认证（登录/token）
 app.include_router(chat_router)  # SP-CHAT-002 / SP-SSE-001 对话入口（SSE）
 app.include_router(sessions_router)  # SP-CHAT-001 会话管理
 app.include_router(refund_router)  # SP-REF 退款服务（建单/工单/审计）

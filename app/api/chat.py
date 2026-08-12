@@ -17,6 +17,7 @@ from fastapi import APIRouter, Depends, Request
 from fastapi.responses import JSONResponse, StreamingResponse
 from pydantic import BaseModel
 
+from app.api.auth import get_current_user
 from app.core.config import get_settings
 from app.core.responses import err, new_trace_id
 from app.intent.classifier import FastTextIntentClassifier, IntentClassifier
@@ -140,13 +141,14 @@ async def chat(
     req: ChatRequest,
     request: Request,
     deps: ChatDeps = Depends(get_chat_deps),
+    user_id: str | None = Depends(get_current_user),
 ) -> Any:
     invalid = _validate(req)
     if invalid is not None:
         logger.info("chat 参数校验失败 %s", invalid.body)
         return invalid  # 流开始前：统一 JSON（非 SSE），无任何事件
 
-    user_id = request.headers.get("X-User-Id") or "anonymous"
+    user_id = user_id or "anonymous"  # 未认证可匿名对话（SP-SEC-003 受保护接口不含 chat）
     last_event_id = request.headers.get("Last-Event-ID")
     attachments = [a.model_dump() for a in req.attachments] if req.attachments else None
     trace_id = new_trace_id()

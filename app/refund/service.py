@@ -34,7 +34,7 @@ class RefundError(Exception):
     ) -> None:
         self.code = code
         self.http_status = http_status
-        self.data = data or {}
+        self.data = data
         super().__init__(message)
 
 
