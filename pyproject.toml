@@ -1,0 +1,23 @@
+# 智能客服多Agent系统 · 工程配置
+# 依赖清单见 requirements.txt / requirements-dev.txt
+[project]
+name = "rag-multi-agent-customer-service"
+version = "0.1.0"
+description = "基于RAG的多Agent客服系统（RAG-based Multi-Agent Customer Service Agent）：混合检索 + 意图识别 + 多智能体协作"
+requires-python = ">=3.11"
+
+[tool.pytest.ini_options]
+asyncio_mode = "auto"
+markers = [
+    "spec: 对应规格ID",
+    "slow: 慢测试（默认跳过）",
+    "integration: 需要外部服务",
+]
+addopts = "-m 'not slow' --strict-markers"
+testpaths = ["tests"]
+
+# 常用命令
+#   pytest tests/unit                                     # 单元（快）
+#   pytest -m integration                                 # 集成（需 docker compose up -d）
+#   pytest -m "spec=SP-CFG-001"                           # 按规格跑
+#   pytest --cov=app/core --cov=app/services --cov-report=term-missing  # 覆盖率
