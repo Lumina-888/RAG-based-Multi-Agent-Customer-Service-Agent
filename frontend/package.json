@@ -1,0 +1,27 @@
+{
+  "name": "smart-agent-frontend",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "智能客服多Agent系统前端（SP-FE：对话页/追踪面板/评测看板/工单页）",
+  "scripts": {
+    "dev": "vite",
+    "build": "vite build",
+    "preview": "vite preview",
+    "test": "vitest run"
+  },
+  "dependencies": {
+    "dompurify": "^3.1.6",
+    "element-plus": "^2.8.4",
+    "marked": "^12.0.2",
+    "pinia": "^2.2.4",
+    "vue": "^3.4.38",
+    "vue-router": "^4.4.3"
+  },
+  "devDependencies": {
+    "@vitejs/plugin-vue": "^5.1.2",
+    "jsdom": "^24.1.3",
+    "vite": "^5.4.2",
+    "vitest": "^2.0.5"
+  }
+}
