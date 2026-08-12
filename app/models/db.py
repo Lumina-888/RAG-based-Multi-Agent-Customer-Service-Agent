@@ -8,7 +8,7 @@ from __future__ import annotations
 from datetime import datetime
 from typing import AsyncIterator
 
-from sqlalchemy import DateTime, Float, ForeignKey, Integer, String, Text, func
+from sqlalchemy import DateTime, Float, ForeignKey, Index, Integer, String, Text, func, text
 from sqlalchemy.ext.asyncio import AsyncEngine, AsyncSession, async_sessionmaker, create_async_engine
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column
 
@@ -40,6 +40,53 @@ class ChatMessageRow(Base):
     agent_route: Mapped[str | None] = mapped_column(String(32), nullable=True)
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now(), index=True
+    )
+
+
+class TicketRow(Base):
+    """退款申请单（SP-REF）：部分唯一索引 uq_refund_active 兜底幂等（SP-REF-005）。"""
+
+    __tablename__ = "tickets"
+    __table_args__ = (
+        Index(
+            "uq_refund_active",
+            "user_id", "order_id", "refund_type",
+            unique=True,
+            postgresql_where=text(
+                "status IN ('CREATED', 'APPROVING', 'APPROVED', 'REFUNDING')"
+            ),
+        ),
+    )
+
+    id: Mapped[str] = mapped_column(String(32), primary_key=True)  # ticket_id
+    user_id: Mapped[str] = mapped_column(String(64), index=True)
+    order_id: Mapped[str] = mapped_column(String(64), index=True)
+    refund_type: Mapped[str] = mapped_column(String(16))
+    amount: Mapped[float] = mapped_column(Float)
+    reason: Mapped[str] = mapped_column(Text)
+    status: Mapped[str] = mapped_column(String(16), index=True)
+    reject_reason: Mapped[str | None] = mapped_column(Text, nullable=True)
+    created_by: Mapped[str] = mapped_column(String(64))
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(), onupdate=func.now()
+    )
+
+
+class RefundAuditLogRow(Base):
+    """退款审计日志（SP-REF-008）：全生命周期留痕。"""
+
+    __tablename__ = "refund_audit_log"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    ticket_id: Mapped[str] = mapped_column(String(32), ForeignKey("tickets.id"), index=True)
+    operator: Mapped[str] = mapped_column(String(64))
+    action: Mapped[str] = mapped_column(String(16))
+    from_status: Mapped[str | None] = mapped_column(String(16), nullable=True)
+    to_status: Mapped[str | None] = mapped_column(String(16), nullable=True)
+    reason: Mapped[str] = mapped_column(Text, default="")
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now()
     )
 
 

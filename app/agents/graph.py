@@ -34,7 +34,7 @@ from app.intent.labels import INVALID_INTENT
 from app.retrieval.hybrid_search import hybrid_search
 from app.services.erp_sim import get_order
 from app.services.llm import LLMUnavailableError
-from app.services.refund_gateway import MemoryRefundGateway, RefundGateway
+from app.services.refund_gateway import RefundGateway, ServiceRefundGateway
 
 logger = logging.getLogger("app.agents.graph")
 

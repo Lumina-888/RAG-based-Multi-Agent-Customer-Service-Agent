@@ -26,7 +26,7 @@ from app.services.chat_flow import run_chat_flow
 from app.services.embedding import build_embedding_client
 from app.services.es import ESClient
 from app.services.llm import LLMRouter, build_llm
-from app.services.refund_gateway import MemoryRefundGateway, RefundGateway
+from app.services.refund_gateway import RefundGateway, ServiceRefundGateway
 
 logger = logging.getLogger("app.api.chat")
 
@@ -57,8 +57,8 @@ class ChatDeps:
     es: Any
     embedding: Any
     retrieval_top_k: int = 5
-    #: 退款建单网关（SP-AGENT-003 工具依赖；M6 交付真实实现后替换）
-    refund_gateway: RefundGateway = field(default_factory=MemoryRefundGateway)
+    #: 退款建单网关（SP-AGENT-003 工具依赖；M6 全量预审实现）
+    refund_gateway: RefundGateway = field(default_factory=ServiceRefundGateway)
 
 
 @lru_cache(maxsize=1)
