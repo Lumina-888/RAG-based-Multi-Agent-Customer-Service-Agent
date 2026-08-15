@@ -59,10 +59,19 @@ GENERIC_TEMPLATES = [
 
 
 def _classify(doc_id: str) -> str:
-    """按文件名关键词分类（W4-3 扩充后自动覆盖）。"""
+    """按文件名关键词分类（W4-3 扩充后自动覆盖）。
+
+    注：FAQ-xx 文档内容为配送/售后 Q&A（发货/物流/发票/退货/保修），
+    归入「售后政策」模板池使 gold 查询与文档内容对齐（修复评测口径）；
+    商品使用FAQ.md 含「使用」关键词且内容为商品咨询演示，归商品使用FAQ。
+    """
     if "售后" in doc_id or "政策" in doc_id:
         return "售后政策"
-    if "FAQ" in doc_id or "商品" in doc_id or "手册" in doc_id or "使用" in doc_id:
+    if "使用" in doc_id:
+        return "商品使用FAQ"
+    if "FAQ" in doc_id:
+        return "售后政策"
+    if "商品" in doc_id or "手册" in doc_id:
         return "商品使用FAQ"
     return "generic"
 
@@ -71,13 +80,36 @@ def _render(template: str, rng: random.Random) -> str:
     return template.format(g=rng.choice(GOODS)) if "{g}" in template else template
 
 
-def _gen_queries(doc_id: str, n: int, rng: random.Random) -> list[dict]:
-    """为单篇文档生成 n 条不重复查询（模板 × 中性后缀组合）。"""
-    pool = CATEGORY_TEMPLATES.get(_classify(doc_id), GENERIC_TEMPLATES)
+def _extract_product(md: Path) -> str | None:
+    """从文档标题提取商品名（商品手册类）：首个 `# ` 标题去掉「商品手册」尾缀。
+
+    例：`# 智能保温杯 500ml 商品手册` → `智能保温杯 500ml`；提取失败返回 None。
+    """
+    for line in md.read_text(encoding="utf-8").splitlines():
+        if line.startswith("# "):
+            title = line[2:].strip()
+            if "商品手册" in title:
+                return title.split("商品手册")[0].strip() or None
+            return None
+    return None
+
+
+def _gen_queries(doc_id: str, n: int, rng: random.Random, product: str | None = None) -> list[dict]:
+    """为单篇文档生成 n 条不重复查询（模板 × 中性后缀组合）。
+
+    product 非空（商品手册类）→ 通用模板 + 文档真实商品名，
+    gold 必定可由该文档回答；否则按分类模板池随机生成。
+    """
+    if product:
+        pool = [t.format(g=product) for t in GENERIC_TEMPLATES]
+        render = lambda t: t  # noqa: E731 - 模板已预渲染
+    else:
+        pool = CATEGORY_TEMPLATES.get(_classify(doc_id), GENERIC_TEMPLATES)
+        render = lambda t: _render(t, rng)  # noqa: E731
     rows: list[dict] = []
     seen: set[str] = set()
     while len(rows) < n:
-        query = f"{_render(rng.choice(pool), rng)} {rng.choice(SUFFIXES)}".strip()
+        query = f"{render(rng.choice(pool))} {rng.choice(SUFFIXES)}".strip()
         if query in seen:
             continue
         seen.add(query)
@@ -215,7 +247,9 @@ def main() -> None:
     per_doc = max(1, min(QUERIES_PER_DOC_CAP, -(-RETRIEVAL_TARGET // len(doc_ids))))  # 向上取整
     doc_queries: dict[str, list[dict]] = {}
     for doc_id in doc_ids:
-        doc_queries[doc_id] = _gen_queries(doc_id, per_doc, rng)
+        md = raw_dir / f"{doc_id}.md"
+        product = _extract_product(md) if doc_id.startswith("商品手册") else None
+        doc_queries[doc_id] = _gen_queries(doc_id, per_doc, rng, product=product)
     retrieval_rows = _balanced_sample(doc_queries, RETRIEVAL_TARGET)  # 跨分类轮询，保总量
 
     ret_path = out_dir / "retrieval.jsonl"

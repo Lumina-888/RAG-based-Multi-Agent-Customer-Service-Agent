@@ -22,7 +22,7 @@ export const useChatStore = defineStore('chat', {
       this.transfer = false
       this.ticketId = null
       try {
-        for await (const ev of sendChatMessage(this.sessionId, content, this.lastEventId)) {
+        for await (const ev of await sendChatMessage(this.sessionId, content, this.lastEventId)) {
           applyEvent(this, ev)
         }
       } catch (e) {
