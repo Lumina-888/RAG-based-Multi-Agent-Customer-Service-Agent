@@ -64,7 +64,7 @@ class ESClient:
     async def delete_by_doc_id(self, doc_id: str) -> None:
         """重索引前清理该 doc_id 全部残留块（含文档缩小后的多余 seq）。"""
         resp = await self._http.post(
-            f"/{self.KB_INDEX}/_delete_by_query?refresh=wait_for",
+            f"/{self.KB_INDEX}/_delete_by_query?refresh=true",
             json={"query": {"term": {"doc_id": doc_id}}},
         )
         resp.raise_for_status()
@@ -166,23 +166,21 @@ class ESClient:
             json={
                 "size": size,
                 "_source": self._SOURCE_FIELDS,
-                "query": {
-                    "rank": {
-                        "rrf": {
-                            "rank_constant": k,
-                            "window_size": 100,
-                            "queries": [
-                                {"multi_match": {"query": q, "fields": ["title^2", "content"]}},
-                                {
-                                    "knn": {
-                                        "field": "embedding",
-                                        "query_vector": q_vector,
-                                        "k": size,
-                                        "num_candidates": num_candidates,
-                                    }
-                                },
-                            ],
-                        }
+                "rank": {
+                    "rrf": {
+                        "rank_constant": k,
+                        "window_size": 100,
+                        "queries": [
+                            {"multi_match": {"query": q, "fields": ["title^2", "content"]}},
+                            {
+                                "knn": {
+                                    "field": "embedding",
+                                    "query_vector": q_vector,
+                                    "k": size,
+                                    "num_candidates": num_candidates,
+                                }
+                            },
+                        ],
                     }
                 },
             },

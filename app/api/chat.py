@@ -120,10 +120,11 @@ async def _event_stream(
     user_id: str,
     last_event_id: str | None,
 ) -> AsyncIterator[str]:
-    if last_event_id is not None:  # 断线重连：重放 id > Last-Event-ID 的事件
+    if last_event_id:  # 非空才重放：浏览器首条消息会带空 Last-Event-ID，int("") 会炸流
+        # 先补发错过的历史事件（前端 seenIds 幂等去重），再继续本次消息的实时流——
+        # 前端 lastEventId 跨消息持续累积，若重放后直接 return，第二条消息会被静默丢弃
         for ev in await deps.store.get_events(session_id, after_id=int(last_event_id)):
             yield _format(ev["event"], ev["data"], ev["id"])
-        return
     try:
         async for event_name, data, seq in run_chat_flow(
             deps, session_id, message, attachments, user_id
