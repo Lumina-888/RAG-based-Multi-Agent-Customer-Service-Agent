@@ -5,6 +5,7 @@
 services:
   postgres:
     image: postgres:16
+    restart: unless-stopped
     environment:
       POSTGRES_USER: postgres
       POSTGRES_PASSWORD: postgres
@@ -19,6 +20,7 @@ services:
 
   redis:
     image: redis:7
+    restart: unless-stopped
     healthcheck:
       test: ["CMD", "redis-cli", "ping"]
       interval: 5s
@@ -28,6 +30,7 @@ services:
   es:
     # 需 ES ≥ 8.8（SP-RET-005 原生 RRF）；单节点演示，内存显式限制
     image: docker.elastic.co/elasticsearch/elasticsearch:8.8.2
+    restart: unless-stopped
     environment:
       - discovery.type=single-node
       - xpack.security.enabled=false
@@ -40,10 +43,11 @@ services:
 
   app:
     build: .
+    restart: unless-stopped
     env_file: .env
     environment:
       # 容器内服务名覆盖 .env 的 localhost 地址（密钥类变量不进 compose）
-      POSTGRES_DSN: postgresql://postgres:postgres@postgres:5432/smart_agent
+      POSTGRES_DSN: postgresql+asyncpg://postgres:postgres@postgres:5432/smart_agent
       REDIS_URL: redis://redis:6379/0
       ES_HOST: http://es:9200
     ports:
@@ -59,6 +63,7 @@ services:
   nginx:
     # SP-DEP-003 反代 + 限流（可选；8080 入口）。直连 8000 绕过限流（SP-CHAT-003 压测口径）
     image: nginx:1.27
+    restart: unless-stopped
     ports:
       - "8080:8080"
     volumes:

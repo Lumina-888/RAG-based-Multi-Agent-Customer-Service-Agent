@@ -8,7 +8,8 @@ fail=0
 echo "== health 探测 =="
 health="$(curl -sf -m 5 "$BASE_URL/api/v1/health")" || { echo "[FAIL] /api/v1/health 不可达"; fail=1; }
 if [ "$fail" -eq 0 ]; then
-  echo "$health" | grep -q '"code": 0' || { echo "[FAIL] health 非 code=0: $health"; fail=1; }
+  # FastAPI JSONResponse 用紧凑分隔符（"code":0 无空格）；兼容两种格式做容错匹配
+  echo "$health" | grep -Eq '"code"[[:space:]]*:[[:space:]]*0' || { echo "[FAIL] health 非 code=0: $health"; fail=1; }
   [ "$fail" -eq 0 ] && echo "[OK] /api/v1/health 200 code=0"
 fi
 
