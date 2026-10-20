@@ -123,8 +123,20 @@ async def _event_stream(
     if last_event_id:  # 非空才重放：浏览器首条消息会带空 Last-Event-ID，int("") 会炸流
         # 先补发错过的历史事件（前端 seenIds 幂等去重），再继续本次消息的实时流——
         # 前端 lastEventId 跨消息持续累积，若重放后直接 return，第二条消息会被静默丢弃
-        for ev in await deps.store.get_events(session_id, after_id=int(last_event_id)):
-            yield _format(ev["event"], ev["data"], ev["id"])
+        # 重放是尽力而为：id 非数字或读 Redis 失败时只记日志、跳过重放，
+        # 不能让历史补发失败拖垮本次消息的实时流（实时流的 done 兜底在下方 try 中）
+        try:
+            after_id = int(last_event_id)
+        except (TypeError, ValueError):
+            logger.warning(
+                "忽略非法 Last-Event-ID session_id=%s value=%r", session_id, last_event_id
+            )
+        else:
+            try:
+                for ev in await deps.store.get_events(session_id, after_id=after_id):
+                    yield _format(ev["event"], ev["data"], ev["id"])
+            except Exception:  # noqa: BLE001 - 重放失败不影响实时流
+                logger.exception("SSE 历史事件重放失败 session_id=%s", session_id)
     try:
         async for event_name, data, seq in run_chat_flow(
             deps, session_id, message, attachments, user_id
