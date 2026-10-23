@@ -57,7 +57,7 @@
 | 意图识别 | fastText（主）+ LLM（兜底） | 轻量分类器，本地加载（唯一本地模型） |
 | 稀疏检索 | Elasticsearch 8.8（BM25） | ES 原生 |
 | 向量检索 | ES 8.x `dense_vector` + kNN | 少一个中间件 |
-| 融合 / 重排 | ES 原生 RRF + bge-reranker-v2-m3 | 重排走硅基流动云端 API |
+| 融合 / 重排 | 应用层加权 RRF（dynamic）+ bge-reranker-v2-m3 | ES 原生 RRF 需付费许可证，basic 部署下 rrf 策略自动降级 BM25；重排走硅基流动云端 API |
 | LLM | DeepSeek-V4-flash（主）/ mimo-v2.5（备 + 多模态） | 云端 API，主备降级 |
 | Embedding | bge-m3（硅基流动 API，dim=1024） | 中文友好 |
 | 文档解析 | MinerU 云端 API（mineru.net） | PDF/Word → Markdown，异步任务 |
