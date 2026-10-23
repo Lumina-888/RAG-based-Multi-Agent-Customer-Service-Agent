@@ -143,7 +143,7 @@ class TestESClient:
         await client.delete_by_doc_id("doc")
         method, path, params, body = rec.calls[0]
         assert path == "/kb_chunks/_delete_by_query"
-        assert params == {"refresh": "wait_for"}
+        assert params == {"refresh": "true"}  # 2026-08-15 部署联调改定：删除立即生效，避免重索引窗口读到残留块
         assert json.loads(body)["query"] == {"term": {"doc_id": "doc"}}
 
     async def test_ing_309_ping(self, client: ESClient, rec: _Recorder) -> None:
@@ -172,7 +172,7 @@ class TestESClient:
         assert hits[0]["title"] == "售后政策"
         method, path, params, body = rec.calls[0]
         payload = json.loads(body)
-        rrf = payload["query"]["rank"]["rrf"]
+        rrf = payload["rank"]["rrf"]  # ES 8.8 形状：rank 与 size 同级；嵌套进 query 会被真实 ES 以 unknown query [rank] 拒绝（2026-08-15 联调修正）
         assert rrf["rank_constant"] == 60  # 与 fusion.rrf_fuse 的 k 对标
         queries = rrf["queries"]
         assert queries[0]["multi_match"]["fields"] == ["title^2", "content"]
