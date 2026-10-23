@@ -214,14 +214,22 @@ class TestChatFlow:
         stored = await deps.store.get_events(sid)
         assert len(stored) == len(events1)  # 事件序列持久化至 session:{id}:events
 
-        # 带 Last-Event-ID 重放：只回放 id > last 的事件（此处无新事件）
+        # 带 Last-Event-ID 的第二条消息（与首条共享同一存储）：
+        # 已收到的事件不重放，但实时流必须照常执行——旧语义在重放后
+        # 直接结束，曾致第二条消息被静默丢弃（2026-08-15 部署联调改定，
+        # 见 app/api/chat.py _event_stream 注释）
         deps2 = _deps(intent="pre_sales", conf=0.95, replies=["回复乙"])
-        client2 = _client(deps2)
-        with client2.stream(
-            "POST", "/api/v1/chat", json=PAYLOAD, headers={"Last-Event-ID": str(len(events1))}
-        ) as resp:
-            body = resp.read().decode()
-        assert body.strip() == ""  # 无新事件可重放
+        deps2.store = deps.store
+        deps2.repo = deps.repo
+        events2 = _post_sse(
+            _client(deps2), PAYLOAD, headers={"Last-Event-ID": str(len(events1))}
+        )
+        assert [e for e, _ in events2] == [
+            "intent", "route", "retrieval", "message", "message", "done",
+        ]
+        contents = [d.get("content", "") for _, d in events2]
+        assert any("回复乙" in c for c in contents)  # 实时流产出新回复
+        assert not any("回复甲" in c for c in contents)  # 旧事件未被重放
 
     async def test_sse_104_pending_confirm_persisted_across_requests(self) -> None:
         """CONFIRM 挂起上下文跨请求持久化（SP-AGENT-004）：未确认不建单。"""
