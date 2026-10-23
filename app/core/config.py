@@ -29,7 +29,8 @@ class Settings(BaseSettings):
     deepseek_api_key: str = ""
     mimo_api_key: str = ""
     deepseek_base_url: str = "https://api.deepseek.com"
-    mimo_base_url: str = "https://api.minimax.chat/v1"
+    #: 小米 MiMo 官方平台（OpenAI 兼容 /v1；密钥走 api-key 头，见 services/llm.py）
+    mimo_base_url: str = "https://api.xiaomimimo.com/v1"
 
     # ---- 模型路由（SP-CFG-004）----
     model_main: str = "deepseek-v4-flash"

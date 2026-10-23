@@ -147,6 +147,7 @@
   - GIVEN 用户消息含图片附件, WHEN 调用 `llm.vision(...)`, THEN 使用 `MODEL_VISION`（mimo-v2.5）理解图片并返回结构化描述
   - THEN 所有调用支持 FakeLLM 注入（CI 单测不依赖真实 API）
 - **测试**：`tests/unit/test_llm_router.py` → `T-CFG-401`（主模型正常）、`T-CFG-402`（主失败自动降级）、`T-CFG-403`（主备均失败 → 5001）、`T-CFG-404`（vision 路由 mimo-v2.5）、`T-CFG-405`（FakeLLM 注入生效）。
+- **2026-10-23 可用性审查修正（实测核验注记）**：原 `MIMO_BASE_URL` 默认值误写为 MiniMax 域名 `api.minimax.chat`（与 mimo 的厂商小米不符），已修正为小米 MiMo 官方平台 `https://api.xiaomimimo.com/v1`；该平台鉴权不用 Bearer，密钥经自定义头 `api-key` 发送，`OpenAIClient` 经 `api_key_header` 参数区分（备模型与视觉客户端均已接线）。回归：`T-CFG-406`（默认 Bearer 头）、`T-CFG-407`（mimo api-key 头）、`T-CFG-102` 增补端点默认值断言。
 
 ---
 
@@ -185,6 +186,7 @@
 #### SP-ING-004 知识库管理 API（P1）
 - **规格**：`POST /api/v1/kb/documents` 上传文档（异步 解析→分块→索引，返回 `doc_id` 与状态）；`GET /api/v1/kb/search?q=` 调试用混合检索原始结果。
 - **测试**：`tests/integration/test_kb_api.py` → `T-ING-401`（上传后索引完成）、`T-ING-402`（search 返回结果）。
+- **2026-10-23 可用性审查补充（实测核验注记）**：新增 `GET /api/v1/kb/documents/{doc_id}` 状态查询——上传与索引各阶段经 `DocStatusStore`（Redis 实现，TTL 7 天）记录 `processing/done/failed`（含分块数与失败原因），无记录返回 4040；此前失败仅记日志、上传者无从知晓。另：全新部署未上传文档时 `kb_chunks` 索引不存在，ES 检索方法对 `index_not_found_exception` 一律按零命中处理，避免冷启动首问泛化报错。回归：`T-ING-414/415/416`（状态完成/未知/失败可见）、`T-ING-312`（索引缺失容错与其它 404 照常抛错）。
 
 #### SP-ING-005 图片理解注入（P0，v1.2 新增）
 - **功能**：MinerU 云端解析抽取的文档图片经 `MODEL_VISION`（mimo-v2.5）多模态理解，转文本后注入 Markdown（图片本身不可被 BM25/向量检索，必须文本化）。
