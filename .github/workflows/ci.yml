@@ -14,5 +14,7 @@ jobs:
           python-version: "3.12"
       - name: Install dependencies
         run: pip install -r requirements-dev.txt
+      - name: Train intent model
+        run: python scripts/train_intent_model.py
       - name: Run unit tests
         run: pytest tests/unit -q
