@@ -118,6 +118,23 @@ class ESClient:
             for h in resp.json()["hits"]["hits"]
         ]
 
+    def _search_hits(self, resp: httpx.Response) -> list[dict]:
+        """检索响应 → 命中列表。
+
+        索引尚不存在（全新部署未上传任何文档）时 ES 返回 404
+        `index_not_found_exception`：语义上等于零命中，返回空列表，
+        避免冷启动首问以泛化 500 错误收场；其余错误照常抛出。
+        """
+        if resp.status_code == 404:
+            try:
+                error_type = resp.json().get("error", {}).get("type", "")
+            except ValueError:
+                error_type = ""
+            if error_type == "index_not_found_exception":
+                return []
+        resp.raise_for_status()
+        return self._map_hits(resp)
+
     async def search_match(self, q: str, size: int = 10) -> list[dict]:
         """BM25 检索（标题权重为内容 2 倍，SP-RET-001 口径）；`/kb/search` 亦复用。"""
         resp = await self._http.post(
@@ -128,8 +145,7 @@ class ESClient:
                 "query": {"multi_match": {"query": q, "fields": ["title^2", "content"]}},
             },
         )
-        resp.raise_for_status()
-        return self._map_hits(resp)
+        return self._search_hits(resp)
 
     async def search_knn(
         self, q_vector: list[float], size: int = 10, num_candidates: int = 200
@@ -148,8 +164,7 @@ class ESClient:
                 },
             },
         )
-        resp.raise_for_status()
-        return self._map_hits(resp)
+        return self._search_hits(resp)
 
     async def search_rrf(
         self,
@@ -185,8 +200,7 @@ class ESClient:
                 },
             },
         )
-        resp.raise_for_status()
-        return self._map_hits(resp)
+        return self._search_hits(resp)
 
     async def aclose(self) -> None:
         await self._http.aclose()

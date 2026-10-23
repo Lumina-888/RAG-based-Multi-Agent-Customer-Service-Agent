@@ -177,3 +177,43 @@ class TestESClient:
         queries = rrf["queries"]
         assert queries[0]["multi_match"]["fields"] == ["title^2", "content"]
         assert queries[1]["knn"]["field"] == "embedding"
+
+
+def _missing_index_client(error_type: str) -> ESClient:
+    """_search 恒返回 404（指定 error.type）的 ESClient。"""
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        return httpx.Response(
+            404,
+            json={
+                "error": {
+                    "type": error_type,
+                    "reason": "no such index [kb_chunks]",
+                    "root_cause": [{"type": error_type, "reason": "no such index"}],
+                },
+                "status": 404,
+            },
+        )
+
+    return ESClient("http://es:9200", timeout=5, transport=httpx.MockTransport(handler))
+
+
+@pytest.mark.spec("SP-RET-001")
+class TestESClientMissingIndex:
+    """冷启动容错：索引不存在（未上传过文档）时检索等于零命中，不抛错。"""
+
+    async def test_ing_312_search_match_missing_index_returns_empty(self) -> None:
+        client = _missing_index_client("index_not_found_exception")
+        assert await client.search_match("退货") == []
+        await client.aclose()
+
+    async def test_ing_312_search_knn_missing_index_returns_empty(self) -> None:
+        client = _missing_index_client("index_not_found_exception")
+        assert await client.search_knn([0.1] * 1024) == []
+        await client.aclose()
+
+    async def test_ing_312_other_404_still_raises(self) -> None:
+        client = _missing_index_client("index_closed_exception")
+        with pytest.raises(httpx.HTTPStatusError):
+            await client.search_match("退货")
+        await client.aclose()

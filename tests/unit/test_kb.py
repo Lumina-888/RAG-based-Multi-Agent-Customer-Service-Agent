@@ -151,3 +151,81 @@ class TestKbApiOffline:
         assert body["data"]["strategy"] in ("rrf", "bm25-fallback")  # 混合检索通路
         hit = body["data"]["hits"][0]
         assert {"chunk_id", "doc_id", "title", "heading_path", "content", "score"} <= set(hit)
+
+
+@pytest.fixture
+def kb_app_status() -> tuple[FastAPI, kb.IngestionDeps]:
+    """带状态存储的 KB 应用：上传后可查 processing→done/failed。"""
+    from app.ingestion.status_store import MemoryDocStatusStore
+
+    app = FastAPI()
+    app.include_router(kb.router)
+    deps = kb.IngestionDeps(
+        es=FakeES(),
+        embedding=FakeEmbeddingClient(dim=1024),
+        mineru=None,
+        llm=None,
+        status_store=MemoryDocStatusStore(),
+    )
+    app.dependency_overrides[kb.get_ingestion_deps] = lambda: deps
+    return app, deps
+
+
+def _poll_status(client, doc_id: str, want: str, timeout: float = 5.0) -> dict:
+    deadline = time.monotonic() + timeout
+    body: dict = {}
+    while time.monotonic() < deadline:
+        body = client.get(f"/api/v1/kb/documents/{doc_id}").json()
+        if body.get("data") and body["data"].get("status") == want:
+            return body
+        time.sleep(0.05)
+    return body
+
+
+@pytest.mark.spec("SP-ING-004")
+class TestKbDocumentStatus:
+    def test_ing_414_status_done_after_upload(self, kb_app_status) -> None:
+        app, _ = kb_app_status
+        client = _client(app)
+        resp = client.post(
+            "/api/v1/kb/documents",
+            files={"file": ("商品FAQ.md", MD.encode("utf-8"), "text/markdown")},
+        )
+        doc_id = resp.json()["data"]["doc_id"]
+
+        body = _poll_status(client, doc_id, "done")
+        assert body["code"] == 0
+        assert body["data"]["status"] == "done"
+        assert body["data"]["chunks"] >= 2
+        assert body["data"]["error"] is None
+
+    def test_ing_415_status_unknown_doc_4040(self, kb_app_status) -> None:
+        app, _ = kb_app_status
+        resp = _client(app).get("/api/v1/kb/documents/no-such-doc")
+        assert resp.status_code == 404
+        assert resp.json()["code"] == 4040
+
+    def test_ing_416_status_failed_when_embedding_raises(self) -> None:
+        """索引失败必须对上传者可见：状态落 failed 并带错误信息。"""
+        from app.ingestion.status_store import MemoryDocStatusStore
+
+        app = FastAPI()
+        app.include_router(kb.router)
+        deps = kb.IngestionDeps(
+            es=FakeES(),
+            embedding=FakeEmbeddingClient(dim=1024, fail_times=999),
+            mineru=None,
+            llm=None,
+            status_store=MemoryDocStatusStore(),
+        )
+        app.dependency_overrides[kb.get_ingestion_deps] = lambda: deps
+        client = _client(app)
+        resp = client.post(
+            "/api/v1/kb/documents",
+            files={"file": ("商品FAQ.md", MD.encode("utf-8"), "text/markdown")},
+        )
+        doc_id = resp.json()["data"]["doc_id"]
+
+        body = _poll_status(client, doc_id, "failed")
+        assert body["data"]["status"] == "failed"
+        assert body["data"]["error"]  # 失败原因对上传者可见

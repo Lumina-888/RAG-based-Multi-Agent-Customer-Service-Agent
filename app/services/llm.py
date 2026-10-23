@@ -55,7 +55,12 @@ class ChatResult:
 
 
 class OpenAIClient:
-    """OpenAI 兼容协议的云端 API 客户端（DeepSeek / mimo 均兼容）。"""
+    """OpenAI 兼容协议的云端 API 客户端（DeepSeek / mimo 均兼容）。
+
+    鉴权头因厂商而异：DeepSeek 走标准 `Authorization: Bearer`；小米 MiMo
+    官方平台（api.xiaomimimo.com）要求自定义头 `api-key`，经
+    `api_key_header="api-key"` 指定，此时密钥原值直放该头、不加 Bearer 前缀。
+    """
 
     def __init__(
         self,
@@ -64,11 +69,16 @@ class OpenAIClient:
         base_url: str,
         timeout: float = 30.0,
         transport: httpx.AsyncBaseTransport | None = None,
+        api_key_header: str = "Authorization",
     ) -> None:
         self.model = model
+        if api_key_header == "Authorization":
+            headers = {"Authorization": f"Bearer {api_key}"}
+        else:
+            headers = {api_key_header: api_key}
         self._http = httpx.AsyncClient(
             base_url=base_url.rstrip("/"),
-            headers={"Authorization": f"Bearer {api_key}"},
+            headers=headers,
             timeout=timeout,
             transport=transport,  # 测试可注入 MockTransport
         )
@@ -265,9 +275,17 @@ def build_llm(config: Settings) -> LLMRouter:
         config.model_main, config.deepseek_api_key, config.deepseek_base_url, config.llm_timeout
     )
     fallback = OpenAIClient(
-        config.model_fallback, config.mimo_api_key, config.mimo_base_url, config.llm_timeout
+        config.model_fallback,
+        config.mimo_api_key,
+        config.mimo_base_url,
+        config.llm_timeout,
+        api_key_header="api-key",  # 小米 MiMo 官方平台鉴权头（非 Bearer）
     )
     vision = OpenAIClient(
-        config.model_vision, config.mimo_api_key, config.mimo_base_url, config.llm_timeout
+        config.model_vision,
+        config.mimo_api_key,
+        config.mimo_base_url,
+        config.llm_timeout,
+        api_key_header="api-key",
     )
     return LLMRouter(config, main, fallback, vision)

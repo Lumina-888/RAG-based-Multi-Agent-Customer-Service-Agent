@@ -8,10 +8,11 @@
 """
 from __future__ import annotations
 
+import httpx
 import pytest
 
 from app.core.config import Settings
-from app.services.llm import FakeLLM, LLMRouter, LLMUnavailableError
+from app.services.llm import FakeLLM, LLMRouter, LLMUnavailableError, OpenAIClient
 
 
 def _settings() -> Settings:
@@ -84,3 +85,45 @@ class TestLLMRouter:
         assert result.content == "ok"
         assert main.calls[0]["messages"][0]["content"] == "ping"
         assert main.calls[0]["model"] == "deepseek-v4-flash"
+
+
+@pytest.mark.spec("SP-CFG-004")
+class TestOpenAIClientAuthHeader:
+    """厂商鉴权头：DeepSeek 走 Bearer；小米 MiMo 官方平台走 api-key 头。"""
+
+    def _transport(self, captured: dict) -> httpx.AsyncBaseTransport:
+        def handler(request: httpx.Request) -> httpx.Response:
+            captured.update(dict(request.headers))
+            return httpx.Response(
+                200, json={"choices": [{"message": {"content": "ok"}}]}
+            )
+
+        return httpx.MockTransport(handler)
+
+    async def test_cfg_406_default_bearer_header(self) -> None:
+        captured: dict = {}
+        key = "deepseek-test"
+        client = OpenAIClient(
+            "deepseek-v4-flash",
+            key,
+            "https://api.deepseek.com",
+            transport=self._transport(captured),
+        )
+        await client.chat([{"role": "user", "content": "hi"}])
+        assert captured.get("authorization") == f"Bearer {key}"
+        assert "api-key" not in captured
+        await client.aclose()
+
+    async def test_cfg_407_mimo_api_key_header(self) -> None:
+        captured: dict = {}
+        client = OpenAIClient(
+            "mimo-v2.5",
+            "mimo-test",
+            "https://api.xiaomimimo.com/v1",
+            transport=self._transport(captured),
+            api_key_header="api-key",
+        )
+        await client.chat([{"role": "user", "content": "hi"}])
+        assert captured.get("api-key") == "mimo-test"
+        assert "authorization" not in captured
+        await client.aclose()

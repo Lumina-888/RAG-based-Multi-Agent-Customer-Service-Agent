@@ -48,6 +48,9 @@ class TestConfigRequired:
         assert s.model_main == "deepseek-v4-flash"
         assert s.model_fallback == "mimo-v2.5"
         assert s.model_vision == "mimo-v2.5"
+        # 服务端点默认值：DeepSeek 官方 / 小米 MiMo 官方（勿写错厂商域名）
+        assert s.deepseek_base_url == "https://api.deepseek.com"
+        assert s.mimo_base_url == "https://api.xiaomimimo.com/v1"
         # 外部依赖默认值
         assert s.postgres_dsn == "postgresql://postgres:postgres@localhost:5432/smart_agent"
         assert s.redis_url == "redis://localhost:6379/0"
