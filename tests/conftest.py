@@ -17,7 +17,17 @@
 """
 from __future__ import annotations
 
+import os
+from pathlib import Path
+
 import pytest
+
+# 离线兜底：运行目录既无真实环境变量、又无 .env 文件时（典型为干净检出），
+# 注入占位密钥使 Settings 必填校验可通过；占位值不用于任何真实调用，
+# 单元测试一律走 Fake 注入体系。有 .env 或真实环境变量时不介入。
+if not Path(".env").exists():
+    os.environ.setdefault("DEEPSEEK_API_KEY", "test-dummy-key")
+    os.environ.setdefault("MIMO_API_KEY", "test-dummy-key")
 
 from app.core.config import get_settings
 from app.services.es import ESClient

@@ -10,7 +10,8 @@ fasttext-wheel>=0.9.2
 numpy<2
 # 会话记忆与消息历史（SP-CHAT-001 / SP-SSE-001）
 redis>=5.0
-sqlalchemy>=2.0
+# [asyncio] 扩展带 greenlet：SQLAlchemy 异步模块的硬依赖，缺之全新安装即 ImportError
+sqlalchemy[asyncio]>=2.0
 asyncpg>=0.29
 # Agent 编排状态机（SP-AGENT-004，仅用 LangGraph，不引入 LangChain 高层抽象）
 langgraph>=0.3
