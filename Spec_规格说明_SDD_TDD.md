@@ -227,6 +227,7 @@
 #### SP-RET-005 混合检索入口（P0）
 - **规格**：`hybrid_search(q, strategy="rrf"|"dynamic")` 返回 `{docs, strategy, elapsed_ms}`；默认 `rrf`（静态，ES 原生 RRF）；`dynamic` 走自研加权融合（见 SP-RET-007）。
 - **测试**：`tests/integration/test_hybrid.py` → `T-RET-501`（默认 RRF 通路）、`T-RET-502`（结果非空且含来源）。
+- **核验注记（2026-10-23）**：ES 原生 RRF 为付费许可证功能，basic 许可证返回 403。默认 Compose（basic）部署下 `strategy="rrf"` 恒降级 BM25，实际混合检索由 dynamic 应用层加权融合承担；上文「默认 rrf」仅为接口默认值口径，不代表出厂部署行为。
 
 #### SP-RET-007 动态权重（P1）
 - **规格**：查询粗分类（规则：实体库/关键词密度/长度，fastText 兜底）→ 实体/关键词查询 `w_bm25=1.5, w_vec=1.0`，语义查询 `w_bm25=1.0, w_vec=1.5`；加权 RRF 在 `fusion.py` 内实现（ES 原生 RRF 不支持按路加权）。
