@@ -12,11 +12,11 @@
 
 | 亮点 | 说明 |
 |---|---|
-| 混合检索 | BM25 + 向量检索 + RRF 融合 + 重排（bge-reranker-v2-m3），E1~E5 消融实验证明效果 |
+| 混合检索 | BM25 + 向量检索 + RRF 融合 + 重排（bge-reranker-v2-m3），E1～E5 消融实验证明效果 |
 | 意图识别双路兜底 | fastText 轻量分类器（主）+ LLM 兜底（辅），置信度分级决策 + 拒答/情绪升级策略 |
 | 多 Agent 协作 | LangGraph 状态机驱动：路由 / 问答 / 工具 / 工单 / 转人工 Agent，CONFIRM 二次确认 |
 | 全链路可观测 | SSE 过程事件（intent → route → retrieval → tool_call → message → done），前端追踪面板可视化 + 事件重放 |
-| 可评测 | RAGAS 指标 + 三格式自建测试集 + E1~E5 消融对比实验，评测结果落库（eval_runs） |
+| 可评测 | RAGAS 指标 + 三格式自建测试集 + E1～E5 消融对比实验，评测结果落库（eval_runs） |
 | 安全合规 | 登录认证 / Bearer Token 鉴权（4010/4030）、注入防护（样本集 41 条 + 规则检出 ≥90%）、回复统一脱敏 |
 | 可部署 | Docker Compose 一键起（pg16/redis7/es8.8/app/nginx），Nginx 反代 + 限流，SSE 流式输出 |
 | 企业规范 | 退款工单状态机 + 部分唯一索引幂等防重 + 审计留痕 + AI 不直接触达资金（资金边界 4091） |
@@ -70,20 +70,20 @@
 
 | 模块 | 规格 | 优先级 | 状态 | 关键产出 |
 |---|---|---|---|---|
-| M0 配置与骨架 | SP-CFG-001~004 | P0 | 已交付 | 配置 fail-fast、JSON 日志（脱敏）、FakeLLM/FakeEmbedding 注入体系 |
-| M1 文档解析与索引 | SP-ING-001~005 | P0 | 已交付 | Markdown/MinerU 解析、结构感知分块、幂等索引、KB API、图片理解 |
-| M2 混合检索 | SP-RET-001~007 | P0 | 已交付 | BM25/向量/RRF 纯函数/动态权重/重排、hybrid_search、bench 脚本 |
-| M3 意图识别 | SP-INT-001~004 | P0 | 已交付 | fastText 分类器（acc≥85%）、置信度分级决策、拒答与情绪升级 |
+| M0 配置与骨架 | SP-CFG-001～004 | P0 | 已交付 | 配置 fail-fast、JSON 日志（脱敏）、FakeLLM/FakeEmbedding 注入体系 |
+| M1 文档解析与索引 | SP-ING-001～005 | P0 | 已交付 | Markdown/MinerU 解析、结构感知分块、幂等索引、KB API、图片理解 |
+| M2 混合检索 | SP-RET-001～007 | P0 | 已交付 | BM25/向量/RRF 纯函数/动态权重/重排、hybrid_search、bench 脚本 |
+| M3 意图识别 | SP-INT-001～004 | P0 | 已交付 | fastText 分类器（acc≥85%）、置信度分级决策、拒答与情绪升级 |
 | M4 会话与对话 API | SP-CHAT / SP-SSE | P0 | 已交付 | SSE 事件协议（四路径）、会话管理（PG + Redis TTL）、事件重放、E2E 12 条 |
-| M5 Agent 编排 | SP-AGENT-001~005 | P0 | 已交付 | LangGraph 状态机、工具契约（归属 4030）、CONFIRM 二次确认、转人工摘要 |
-| M6 退款服务 | SP-REF-001~008 | P0 | 已交付 | 预审规则引擎、状态机+审计、幂等（部分唯一索引）、资金边界（4091） |
-| M7 评测体系 | SP-EVAL-001~003 | P1 | 已交付 | 三格式测试集加载、纯函数指标（Recall@5/MRR/NDCG@5/宏F1）、RAGAS、eval_runs 落 PG、E1~E5 消融 |
-| M8 前端页面 | SP-FE-001~003 | P1 | 已交付 | SSE 解析器+事件状态机（Vitest 20 例）、对话页角标溯源、追踪面板、评测看板、工单受限迁移 |
-| M9 部署 | SP-DEP-001~003 | P1 | 已交付 | Compose 一键起、多阶段 Dockerfile、启动训练 fastText、Nginx 限流 4290、密钥扫描、冒烟 |
-| M10 安全与限流 | SP-SEC-001~003 | P0/P1 | 已交付 | 认证鉴权（4010/4030）、注入防护（41 条样本检出 ≥90%）、回复统一脱敏 |
-| W4 数据与联调 | T-API-101~106 等 | 收尾 | 已交付 | 102 份演示文档（售后政策/商品手册/FAQ + 噪声）、批量上传、api_smoke 逐项探测 |
+| M5 Agent 编排 | SP-AGENT-001～005 | P0 | 已交付 | LangGraph 状态机、工具契约（归属 4030）、CONFIRM 二次确认、转人工摘要 |
+| M6 退款服务 | SP-REF-001～008 | P0 | 已交付 | 预审规则引擎、状态机+审计、幂等（部分唯一索引）、资金边界（4091） |
+| M7 评测体系 | SP-EVAL-001～003 | P1 | 已交付 | 三格式测试集加载、纯函数指标（Recall@5/MRR/NDCG@5/宏 F1）、RAGAS、eval_runs 落 PG、E1～E5 消融 |
+| M8 前端页面 | SP-FE-001～003 | P1 | 已交付 | SSE 解析器+事件状态机（Vitest 20 例）、对话页角标溯源、追踪面板、评测看板、工单受限迁移 |
+| M9 部署 | SP-DEP-001～003 | P1 | 已交付 | Compose 一键起、多阶段 Dockerfile、启动训练 fastText、Nginx 限流 4290、密钥扫描、冒烟 |
+| M10 安全与限流 | SP-SEC-001～003 | P0/P1 | 已交付 | 认证鉴权（4010/4030）、注入防护（41 条样本检出 ≥90%）、回复统一脱敏 |
+| W4 数据与联调 | T-API-101～106 等 | 收尾 | 已交付 | 102 份演示文档（售后政策/商品手册/FAQ + 噪声）、批量上传、api_smoke 逐项探测 |
 
-**测试基线**：后端 340 个测试（311 passed + 29 skipped，skipped 均为外部服务守卫）+ 前端 Vitest 20 个全绿；核心模块覆盖率 90%+（app/eval 95%、app/security 90%）。
+**测试基线**：后端 340 个测试（311 passed + 29 skipped，skipped 均为外部服务守卫）+ 前端 Vitest 20 个全绿；核心模块覆盖率 90% 以上（app/eval 95%、app/security 90%）。
 
 > 剩余收尾（服务在线后执行）：`pytest -m integration` 全量实跑、性能验收（100 文档 + bench 脚本）、真实 API Key 联调。详见 [docs/待开发文档_W4.md](docs/待开发文档_W4.md)。
 
