@@ -7,7 +7,7 @@
 > 模型基线：DeepSeek-V4-flash（主）/ mimo-v2.5（备用 + 多模态图片理解）
 >
 > 修订记录（v1.0 → v1.1）：统一意图决策树（SP-INT-003）；新增 SP-SEC-003 认证与鉴权；新增 SP-CFG-004 统一 LLM 封装；新增 SP-ING-004 知识库 API；拆分 SP-RET-005/007（动态权重独立成规）；SSE 补充可选事件（vision）/错误路径/事件重放/图片理解；会话 TTL 语义修正（上下文 vs 历史）；时效规则三档化（SP-REF-003）；幂等改部分唯一索引并允许终态后重新申请（SP-REF-005）；审计字段对齐（SP-REF-008）；限流与压测路径约定（SP-DEP-003 / SP-CHAT-003）；SP-EVAL-001 优先级降为 P1。
-> 修订记录（v1.1 → v1.2）：SP-ING-001 增加 MinerU 解析适配器（PDF/Word → Markdown）；新增 SP-ING-005 图片理解注入（mimo-v2.5，含 T-ING-104~106）。
+> 修订记录（v1.1 → v1.2）：SP-ING-001 增加 MinerU 解析适配器（PDF/Word → Markdown）；新增 SP-ING-005 图片理解注入（mimo-v2.5，含 T-ING-104～106）。
 > 修订记录（v1.2 → v1.3）：取消 Ollama 本地兜底与 `LLM_PROVIDER` 配置项，LLM 全部走云端 API；SP-CFG-001 必填项固定为 `DEEPSEEK_API_KEY / MIMO_API_KEY`。
 > 修订记录（v1.3 → v1.4）：SP-ING-001 MinerU 解析改走云端 API（mineru.net 异步任务），取消离线本地模型；PDF/Word 解析全程在线；SP-RET-004/006 重排表述统一为硅基流动云端 API。
 
@@ -17,7 +17,7 @@
 
 ### 0.1 什么是 SDD + TDD（本项目如何执行）
 
-- **SDD（规格驱动）**：先写"可验证的行为规格"，规格是**代码与需求之间的契约**。开发顺序：`规格 → 测试 → 实现`。
+- **SDD（规格驱动）**：先写“可验证的行为规格”，规格是**代码与需求之间的契约**。开发顺序：`规格 → 测试 → 实现`。
 - **TDD（测试驱动）**：实现前先写测试，测试失败（Red）→ 最小实现（Green）→ 重构（Refactor）。
 
 ### 0.2 单模块开发循环
@@ -44,7 +44,7 @@
         └──────────┘
 ```
 
-- 单元测试必须快（< 5s 全量），不依赖外部服务（用 fake/内存实现）
+- 单元测试必须快（< 5 s 全量），不依赖外部服务（用 fake/内存实现）
 - 集成测试可依赖 ES/Redis/PostgreSQL（Docker Compose 启动）
 - E2E 最少 10 条主流程用例
 
@@ -86,7 +86,7 @@
 | M9 部署 | SP-DEP | P1 | 已交付 |
 | M10 安全与限流 | SP-SEC（SP-SEC-003 认证为 P0，其余 P1） | P0 | 已交付 |
 
-> P0 = 核心闭环（W1~W3 必须交付）；P1 = 完善与上线（W4）；P2 = 可选扩展。
+> P0 = 核心闭环（W1～W3 必须交付）；P1 = 完善与上线（W4）；P2 = 可选扩展。
 
 ### 1.2 全局接口契约（所有 API 遵守）
 
@@ -170,7 +170,7 @@
 - **规格**：
   - GIVEN 文档含 H1/H2/H3 层级
   - WHEN 调用 `chunk(doc, size=400, overlap=50)`
-  - THEN 块不跨 H1 标题、默认块长 300~500 token、相邻块重叠 50 token、每块带 `heading_path` 元数据
+  - THEN 块不跨 H1 标题、默认块长 300～500 token、相邻块重叠 50 token、每块带 `heading_path` 元数据
   - THEN 一条完整 FAQ 不被拆进两个块
 - **测试**：`tests/unit/test_chunker.py` → `T-ING-201`（不跨标题）、`T-ING-202`（重叠正确）、`T-ING-203`（FAQ 完整性）。
 
@@ -193,7 +193,7 @@
 - **规格**：
   - GIVEN MinerU 云端解析结果含图片列表
   - WHEN 执行图片理解流程
-  - THEN 装饰性图片（宽高 < 300px / 纯色占比高 / logo 类）被跳过，不调用 LLM
+  - THEN 装饰性图片（宽高 < 300 px / 纯色占比高 / logo 类）被跳过，不调用 LLM
   - THEN 信息图（截图/表单/流程图等）经 `llm.vision()`（mimo-v2.5）生成结构化描述，以 `【图N 内容：...】` 文本块注入原图位置
   - THEN 单文档图片理解数 ≤ 20 张，超出部分跳过并计数报告
   - THEN 图片理解走 `llm.vision()` 封装，FakeLLM 可注入（SP-CFG-004），单元测试不依赖真实 API
@@ -208,7 +208,7 @@
 - **测试**：`tests/integration/test_bm25.py` → `T-RET-101`（关键词精确命中排前）。
 
 #### SP-RET-002 向量检索（P0）
-- **规格**：GIVEN 查询 q, WHEN 调用 `vector_search(q, top_k=10)`, THEN 返回含 `score` 的结果并按相似度降序；中文语义近义查询（"退货" ↔ "退款"）能召回。
+- **规格**：GIVEN 查询 q, WHEN 调用 `vector_search(q, top_k=10)`, THEN 返回含 `score` 的结果并按相似度降序；中文语义近义查询（“退货” ↔ “退款”）能召回。
 - **测试**：`T-RET-201`（语义召回）、`T-RET-202`（维度与 embedding 模型一致）。
 
 #### SP-RET-003 RRF 融合（P0）核心
@@ -236,7 +236,7 @@
 - **测试**：`T-RET-503`（dynamic 在关键词查询上 ≥ rrf 基线，消融数据）。
 
 #### SP-RET-006 检索性能（P0）
-- **规格**：本地 ES，单查询 P95 < 500ms（含融合，不含重排）；重排 P95 < 800ms（硅基流动 bge-reranker-v2-m3 API）。
+- **规格**：本地 ES，单查询 P95 < 500 ms（含融合，不含重排）；重排 P95 < 800 ms（硅基流动 bge-reranker-v2-m3 API）。
 - **测试**：`T-RET-601`（基准测试脚本 `tests/bench/bench_retrieval.py`）。
 
 ---
@@ -296,7 +296,7 @@
 - **测试**：`tests/e2e/test_chat_sse.py` → `T-SSE-101`（事件顺序断言，覆盖正常/澄清/转人工/图片四路径，E2E 总用例 ≥ 10 条）、`T-SSE-102`（JSON 合法性）、`T-SSE-103`（错误路径必有 done）。
 
 #### SP-CHAT-003 首响性能（P0）
-- **规格**：首条 SSE 事件（intent）延迟 P95 < 2s；完整回复 P95 < 15s；20 并发不报错。
+- **规格**：首条 SSE 事件（intent）延迟 P95 < 2 s；完整回复 P95 < 15 s；20 并发不报错。
 - **测试**：`T-CHAT-301`（并发压测脚本 `tests/bench/bench_chat.py`，**直连 app:8000 绕过 Nginx 限流**）。
 
 ---
@@ -322,11 +322,11 @@
 - **测试**：`tests/integration/test_tools.py` → `T-AGENT-301`（合法参数调用）、`T-AGENT-302`（非法参数不调用+澄清）、`T-AGENT-303`（他人订单 4030）、`T-AGENT-304`（未确认不建单）。
 
 #### SP-AGENT-004 状态机编排（P0）
-- **规格**：LangGraph 状态含 `{messages, intent, conf, route, tool_calls, retrieved_docs, ticket_id, transfer_needed, pending_confirm}`；敏感操作（建单）进入 CONFIRM 节点挂起等待用户确认（`pending_confirm=true`，挂起期间仅接受"确认/取消"）；每个节点执行后状态可序列化回放；异常节点不中断整条链（走兜底回复）。
+- **规格**：LangGraph 状态含 `{messages, intent, conf, route, tool_calls, retrieved_docs, ticket_id, transfer_needed, pending_confirm}`；敏感操作（建单）进入 CONFIRM 节点挂起等待用户确认（`pending_confirm=true`，挂起期间仅接受“确认/取消”）；每个节点执行后状态可序列化回放；异常节点不中断整条链（走兜底回复）。
 - **测试**：`tests/integration/test_graph.py` → `T-AGENT-401`（全流程一次通过）、`T-AGENT-402`（中途异常走兜底）。
 
 #### SP-AGENT-005 转人工（P0）
-- **规格**：转人工时生成会话摘要（问题、已提供信息、订单号），摘要写入 Redis，前端显示"已转接人工坐席 1001"。
+- **规格**：转人工时生成会话摘要（问题、已提供信息、订单号），摘要写入 Redis，前端显示“已转接人工坐席 1001”。
 - **测试**：`T-AGENT-501`（摘要生成）、`T-AGENT-502`（状态落库）。
 
 ---
@@ -345,7 +345,7 @@
 #### SP-REF-003 订单状态与时效预审（P0）
 - **规格**：预审规则（规则引擎，非 LLM）：
   - 未发货 → 通过（`refund_type=only_refund`；`return_refund` → 4220 + 引导改 only_refund）
-  - 已发货未签收 → 仅可"拦截/拒收"，直接退款拒绝（4220 + 引导）
+  - 已发货未签收 → 仅可“拦截/拒收”，直接退款拒绝（4220 + 引导）
   - 已签收，签收 ≤ 7 天 → 无理由退货或质量问题（`return_refund`）
   - 已签收，7 天 < 签收 ≤ 15 天 → 仅质量问题（附凭证）
   - 已签收，签收 > 15 天 → 4220 + 转人工
@@ -380,11 +380,11 @@
 - **测试**：`tests/unit/test_case_loader.py` → `T-EVAL-101`（加载计数）、`T-EVAL-102`（非法行跳过）。
 
 #### SP-EVAL-002 指标计算（P1）
-- **规格**：意图 Accuracy/宏F1/混淆矩阵；检索 Recall@5/MRR/NDCG@5；RAGAS faithfulness/answer_relevancy；结果写入 `eval_runs`。
+- **规格**：意图 Accuracy/宏 F1/混淆矩阵；检索 Recall@5/MRR/NDCG@5；RAGAS faithfulness/answer_relevancy；结果写入 `eval_runs`。
 - **测试**：`tests/unit/test_metrics.py` → `T-EVAL-201`（Recall@5 手工样本验证）。
 
 #### SP-EVAL-003 消融实验跑批（P1）
-- **规格**：一键跑 E1~E5（仅BM25 / 仅向量 / RRF / RRF+重排 / 动态权重），输出对比表 JSON，可被前端看板渲染。
+- **规格**：一键跑 E1～E5（仅 BM25 / 仅向量 / RRF / RRF+重排 / 动态权重），输出对比表 JSON，可被前端看板渲染。
 - **测试**：`tests/integration/test_ablation.py` → `T-EVAL-301`（5 组策略均可执行）。
 
 ---
@@ -425,7 +425,7 @@
 ### M10 安全（SP-SEC）
 
 #### SP-SEC-001 Prompt 注入防护（P0）
-- **规格**：注入样本集（≥ 30 条，如"忽略以上指令"）通过率 ≥ 90%；用户输入与系统提示词之间加分隔标记；敏感工具（建单）执行前二次确认（编排层 CONFIRM 节点，见 SP-AGENT-004）。
+- **规格**：注入样本集（≥ 30 条，如“忽略以上指令”）通过率 ≥ 90%；用户输入与系统提示词之间加分隔标记；敏感工具（建单）执行前二次确认（编排层 CONFIRM 节点，见 SP-AGENT-004）。
 - **测试**：`tests/integration/test_security.py` → `T-SEC-101`（注入样本门槛）、`T-SEC-102`（二次确认拦截）。
 
 #### SP-SEC-002 敏感信息（P1）
